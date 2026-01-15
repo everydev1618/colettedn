@@ -1773,6 +1773,10 @@ body {
    Dropdown Upgrade Button
    ========================================================================== */
 
+.dropdown-item[hidden] {
+    display: none !important;
+}
+
 .dropdown-upgrade {
     color: var(--gold) !important;
 }
