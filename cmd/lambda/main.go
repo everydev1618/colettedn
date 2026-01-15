@@ -19,7 +19,7 @@ import (
 var frontendFS embed.FS
 
 var frontendRoot fs.FS
-var httpAdapter *httpadapter.HandlerAdapter
+var httpAdapterV2 *httpadapter.HandlerAdapterV2
 
 func init() {
 	h := handler.New()
@@ -35,7 +35,7 @@ func init() {
 	frontendRoot, _ = fs.Sub(frontendFS, "frontend")
 	mux.Handle("GET /static/", http.FileServer(http.FS(frontendRoot)))
 
-	httpAdapter = httpadapter.New(mux)
+	httpAdapterV2 = httpadapter.NewV2(mux)
 }
 
 func handleRequest(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
@@ -74,7 +74,7 @@ func handleRequest(ctx context.Context, req events.APIGatewayV2HTTPRequest) (eve
 	}
 
 	// Use httpadapter for API routes
-	return httpAdapter.ProxyWithContext(ctx, req)
+	return httpAdapterV2.ProxyWithContext(ctx, req)
 }
 
 func main() {
