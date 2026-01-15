@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/everydev1618/colettedn/internal/analytics"
@@ -100,6 +103,14 @@ type GenerateResponse struct {
 	Rounds           int                       `json:"rounds"`
 	Error            string                    `json:"error,omitempty"`
 	UpgradeAvailable bool                      `json:"upgradeAvailable,omitempty"`
+	// Usage info for free users
+	Usage *UsageInfo `json:"usage,omitempty"`
+}
+
+type UsageInfo struct {
+	Used      int  `json:"used"`
+	Limit     int  `json:"limit"`
+	Unlimited bool `json:"unlimited"`
 }
 
 const (
@@ -210,6 +221,9 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 	}
 	analytics.Get().TrackSearch(r.Context(), userID, email, ip, req.Description, req.TLDStyle)
 
+	// Check if the input is a domain idea (like "tonycto.com") vs a project description
+	isDomainMode := isDomainIdea(req.Description)
+
 	// Multi-round generation with availability checking
 	availableByCategory := make(map[string][]DomainResult)
 	var takenDomains []string
@@ -232,10 +246,20 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		// Generate domains (with exclusions after first round)
 		var categorized map[string][]string
 		var err error
-		if len(takenDomains) == 0 {
-			categorized, err = h.gen.GenerateCategorized(r.Context(), req.Description, tlds)
+		if isDomainMode {
+			// Domain exploration mode - explore variations of the given domain idea
+			if len(takenDomains) == 0 {
+				categorized, err = h.gen.GenerateFromDomainIdea(r.Context(), req.Description, tlds)
+			} else {
+				categorized, err = h.gen.GenerateFromDomainIdeaWithExclusions(r.Context(), req.Description, tlds, takenDomains)
+			}
 		} else {
-			categorized, err = h.gen.GenerateCategorizedWithExclusions(r.Context(), req.Description, tlds, takenDomains)
+			// Normal mode - generate domains based on project description
+			if len(takenDomains) == 0 {
+				categorized, err = h.gen.GenerateCategorized(r.Context(), req.Description, tlds)
+			} else {
+				categorized, err = h.gen.GenerateCategorizedWithExclusions(r.Context(), req.Description, tlds, takenDomains)
+			}
 		}
 		if err != nil {
 			// If we have some results, return those; otherwise error
@@ -295,10 +319,28 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, GenerateResponse{
+	// Build response with usage info
+	response := GenerateResponse{
 		Categories: availableByCategory,
 		Rounds:     rounds,
-	})
+	}
+
+	// Include usage info for tracking
+	if isPro {
+		response.Usage = &UsageInfo{
+			Used:      rl.DailyUsed,
+			Limit:     0,
+			Unlimited: true,
+		}
+	} else {
+		response.Usage = &UsageInfo{
+			Used:      rl.DailyUsed,
+			Limit:     h.limiter.DailyLimit(),
+			Unlimited: false,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, response)
 }
 
 type availabilityInfo struct {
@@ -542,4 +584,219 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%d minutes", int(d.Minutes()))
 	}
 	return fmt.Sprintf("%.1f hours", d.Hours())
+}
+
+// isDomainIdea checks if the input looks like a domain name idea rather than a project description
+func isDomainIdea(input string) bool {
+	input = strings.TrimSpace(strings.ToLower(input))
+
+	// Common TLDs to check for
+	tlds := []string{".com", ".io", ".co", ".net", ".org", ".ai", ".app", ".dev", ".me", ".xyz", ".tech", ".site", ".online"}
+
+	for _, tld := range tlds {
+		if strings.HasSuffix(input, tld) {
+			// Make sure there's something before the TLD
+			prefix := strings.TrimSuffix(input, tld)
+			if len(prefix) > 0 && !strings.Contains(prefix, " ") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// ComSiteStatus represents the status of a .com domain's website
+type ComSiteStatus string
+
+const (
+	ComSiteActive    ComSiteStatus = "active"    // Has a real website
+	ComSiteParked    ComSiteStatus = "parked"    // Parked/for sale page
+	ComSiteInactive  ComSiteStatus = "inactive"  // No website (error, timeout, etc.)
+	ComSiteAvailable ComSiteStatus = "available" // Domain is available for registration
+)
+
+type CheckComRequest struct {
+	Domain string `json:"domain"` // The non-.com domain to check (e.g., "foo.io")
+}
+
+type CheckComResponse struct {
+	Domain    string        `json:"domain"`    // The .com domain that was checked
+	Status    ComSiteStatus `json:"status"`    // active, parked, inactive, available
+	FromCache bool          `json:"fromCache"` // Whether this came from cache
+	Error     string        `json:"error,omitempty"`
+}
+
+// In-memory cache for .com site checks (TTL: 24 hours)
+var (
+	comSiteCache   = make(map[string]*comSiteCacheEntry)
+	comSiteCacheMu sync.RWMutex
+)
+
+type comSiteCacheEntry struct {
+	Status    ComSiteStatus
+	CheckedAt time.Time
+}
+
+const comSiteCacheTTL = 24 * time.Hour
+
+// CheckComSite checks if the .com version of a domain has an active website
+func (h *Handler) CheckComSite(w http.ResponseWriter, r *http.Request) {
+	var req CheckComRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, CheckComResponse{Error: "Invalid request body"})
+		return
+	}
+
+	if req.Domain == "" {
+		writeJSON(w, http.StatusBadRequest, CheckComResponse{Error: "Domain is required"})
+		return
+	}
+
+	// Extract base name from domain (e.g., "foo.io" -> "foo")
+	domain := strings.TrimSpace(strings.ToLower(req.Domain))
+	baseName := extractBaseName(domain)
+	if baseName == "" {
+		writeJSON(w, http.StatusBadRequest, CheckComResponse{Error: "Invalid domain format"})
+		return
+	}
+
+	comDomain := baseName + ".com"
+
+	// Check cache first
+	comSiteCacheMu.RLock()
+	entry, found := comSiteCache[comDomain]
+	comSiteCacheMu.RUnlock()
+
+	if found && time.Since(entry.CheckedAt) < comSiteCacheTTL {
+		writeJSON(w, http.StatusOK, CheckComResponse{
+			Domain:    comDomain,
+			Status:    entry.Status,
+			FromCache: true,
+		})
+		return
+	}
+
+	// Check if .com is available via Namecheap first
+	if h.nc != nil {
+		results, err := h.nc.CheckAvailability(r.Context(), []string{comDomain})
+		if err == nil && len(results) > 0 && results[0].Available {
+			// .com is available for registration
+			status := ComSiteAvailable
+			cacheComSiteStatus(comDomain, status)
+			writeJSON(w, http.StatusOK, CheckComResponse{
+				Domain:    comDomain,
+				Status:    status,
+				FromCache: false,
+			})
+			return
+		}
+	}
+
+	// .com is taken - check if it has an active site
+	status := checkSiteStatus(r.Context(), comDomain)
+	cacheComSiteStatus(comDomain, status)
+
+	writeJSON(w, http.StatusOK, CheckComResponse{
+		Domain:    comDomain,
+		Status:    status,
+		FromCache: false,
+	})
+}
+
+func extractBaseName(domain string) string {
+	// Remove TLD to get base name
+	tlds := []string{".com", ".io", ".co", ".net", ".org", ".ai", ".app", ".dev", ".me", ".xyz", ".tech", ".site", ".online"}
+	for _, tld := range tlds {
+		if strings.HasSuffix(domain, tld) {
+			return strings.TrimSuffix(domain, tld)
+		}
+	}
+	// If no known TLD, try to split on last dot
+	if idx := strings.LastIndex(domain, "."); idx > 0 {
+		return domain[:idx]
+	}
+	return ""
+}
+
+func cacheComSiteStatus(domain string, status ComSiteStatus) {
+	comSiteCacheMu.Lock()
+	comSiteCache[domain] = &comSiteCacheEntry{
+		Status:    status,
+		CheckedAt: time.Now(),
+	}
+	comSiteCacheMu.Unlock()
+}
+
+func checkSiteStatus(ctx context.Context, domain string) ComSiteStatus {
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// Allow up to 3 redirects
+			if len(via) >= 3 {
+				return http.ErrUseLastResponse
+			}
+			return nil
+		},
+	}
+
+	// Try HTTPS first, fall back to HTTP
+	urls := []string{
+		"https://" + domain,
+		"http://" + domain,
+	}
+
+	for _, url := range urls {
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ColetteDN/1.0)")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		// Read limited body for content analysis
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 50000)) // 50KB max
+		if err != nil {
+			continue
+		}
+
+		bodyLower := strings.ToLower(string(body))
+
+		// Check for parking page indicators
+		parkingIndicators := []string{
+			"domain is for sale",
+			"buy this domain",
+			"this domain may be for sale",
+			"domain parking",
+			"parked domain",
+			"godaddy",
+			"sedoparking",
+			"hugedomains",
+			"dan.com",
+			"afternic",
+			"undeveloped",
+			"domain for sale",
+			"make an offer",
+			"is available for purchase",
+		}
+
+		for _, indicator := range parkingIndicators {
+			if strings.Contains(bodyLower, indicator) {
+				return ComSiteParked
+			}
+		}
+
+		// If we got a successful response with real content, it's active
+		if resp.StatusCode >= 200 && resp.StatusCode < 400 && len(body) > 500 {
+			return ComSiteActive
+		}
+	}
+
+	return ComSiteInactive
 }

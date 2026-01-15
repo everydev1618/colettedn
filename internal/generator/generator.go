@@ -102,6 +102,133 @@ func buildCategorizedPrompt(description string, tlds []string) string {
 	return buildCategorizedPromptWithExclusions(description, tlds, nil)
 }
 
+// GenerateFromDomainIdea generates variations of a domain idea
+func (g *Generator) GenerateFromDomainIdea(ctx context.Context, domainIdea string, tlds []string) (map[string][]string, error) {
+	return g.GenerateFromDomainIdeaWithExclusions(ctx, domainIdea, tlds, nil)
+}
+
+// GenerateFromDomainIdeaWithExclusions generates variations of a domain idea, avoiding taken domains
+func (g *Generator) GenerateFromDomainIdeaWithExclusions(ctx context.Context, domainIdea string, tlds []string, takenDomains []string) (map[string][]string, error) {
+	if g.apiKey == "" {
+		return nil, fmt.Errorf("ANTHROPIC_API_KEY not set")
+	}
+
+	prompt := buildDomainExplorationPrompt(domainIdea, tlds, takenDomains)
+
+	reqBody := claudeRequest{
+		Model:     "claude-sonnet-4-20250514",
+		MaxTokens: 4096,
+		Messages: []message{
+			{Role: "user", Content: prompt},
+		},
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", g.apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("API request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var claudeResp claudeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&claudeResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	if claudeResp.Error != nil {
+		return nil, fmt.Errorf("API error: %s", claudeResp.Error.Message)
+	}
+
+	if len(claudeResp.Content) == 0 {
+		return nil, fmt.Errorf("empty response from API")
+	}
+
+	return parseCategorizedDomains(claudeResp.Content[0].Text), nil
+}
+
+func buildDomainExplorationPrompt(domainIdea string, tlds []string, takenDomains []string) string {
+	exclusionNote := ""
+	if len(takenDomains) > 0 {
+		maxToShow := 30
+		if len(takenDomains) > maxToShow {
+			takenDomains = takenDomains[:maxToShow]
+		}
+		exclusionNote = fmt.Sprintf(`
+
+IMPORTANT - These domains are TAKEN. Avoid these exact names:
+%s
+
+Generate DIFFERENT variations that aren't in this list.`, strings.Join(takenDomains, ", "))
+	}
+
+	return fmt.Sprintf(`The user has a domain idea: "%s"
+
+Your job is to EXPLORE THE SHIT out of this domain idea and generate amazing variations. Think of yourself as a creative domain naming expert who's been given a seed idea to riff on.
+
+TLDs to use: %s%s
+
+First, analyze the domain idea:
+- What's the core word/concept?
+- What might this domain be for? (personal brand, business, project?)
+- What makes it memorable or interesting?
+
+Then generate variations in 4 categories:
+
+1. **Professional** - Clean variations that maintain the professional vibe
+   - Same word with different TLDs
+   - The word + common professional suffixes (hq, pro, labs, studio, co, group)
+   - Slight spelling variations that look intentional
+   - First name / last name combinations if it appears to be a personal brand
+
+2. **Playful** - Fun spins on the original
+   - Add "get", "hey", "go", "try", "meet", "hello" prefixes
+   - Add "app", "me", "now", "daily", "club" suffixes
+   - Creative wordplay that keeps the essence
+   - Alliterative or rhyming variations
+
+3. **Creative** - Unexpected twists and invented words
+   - Portmanteaus combining parts of the idea with other concepts
+   - Abstract variations that evoke the same feeling
+   - Phonetic respellings that look cool
+   - Compound words that expand on the idea
+   - Foreign language equivalents or inspired words
+
+4. **Minimal** - Short, punchy alternatives
+   - Abbreviations or initials if applicable
+   - Single-syllable alternatives
+   - The shortest possible versions that still work
+   - Premium single-word domains in the same space
+
+Guidelines:
+- Generate 12-15 names per category (48-60 total)
+- Mix TLDs naturally throughout
+- The original domain (with various TLDs) should appear in the results
+- Be creative but keep variations RELATED to the original idea
+- No hyphens or numbers
+- Think about what variations the user hasn't thought of yet
+
+Return ONLY valid JSON in this exact format:
+{
+  "Professional": ["domain1.com", "domain2.io"],
+  "Playful": ["domain3.com", "domain4.co"],
+  "Creative": ["domain5.com", "domain6.dev"],
+  "Minimal": ["domain7.com", "domain8.io"]
+}`, domainIdea, strings.Join(tlds, ", "), exclusionNote)
+}
+
 func buildCategorizedPromptWithExclusions(description string, tlds []string, takenDomains []string) string {
 	exclusionNote := ""
 	if len(takenDomains) > 0 {

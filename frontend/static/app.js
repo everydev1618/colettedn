@@ -7,6 +7,8 @@ let authToken = localStorage.getItem('authToken');
 let currentUser = null;
 let userFavorites = new Set();
 let userOwnedDomains = new Map(); // domain -> { acquisitionType, createdAt }
+let usageInfo = null; // { used, limit, unlimited }
+let comSiteChecks = new Map(); // baseName -> { status, domain }
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('generate-form');
@@ -91,6 +93,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminBtn = document.getElementById('admin-btn');
     const heroAdminBtn = document.getElementById('hero-admin-btn');
     const ADMIN_EMAIL = 'etdebruin@gmail.com';
+
+    // Plan info elements
+    const planName = document.getElementById('plan-name');
+    const planDetail = document.getElementById('plan-detail');
+    const heroPlanName = document.getElementById('hero-plan-name');
+    const heroPlanDetail = document.getElementById('hero-plan-detail');
 
     // Owned modal elements
     const ownedModal = document.getElementById('owned-modal');
@@ -194,6 +202,23 @@ document.addEventListener('DOMContentLoaded', () => {
             heroUserEmail.innerHTML = isPro
                 ? `<span class="user-email-text">${escapeHtml(currentUser.email)}</span><span class="pro-badge">Pro</span>`
                 : `<span class="user-email-text">${escapeHtml(currentUser.email)}</span>`;
+
+            // Update plan info in dropdowns
+            if (isPro) {
+                planName.textContent = 'Pro';
+                planName.classList.add('plan-pro');
+                planDetail.textContent = 'Unlimited searches';
+                heroPlanName.textContent = 'Pro';
+                heroPlanName.classList.add('plan-pro');
+                heroPlanDetail.textContent = 'Unlimited searches';
+            } else {
+                planName.textContent = 'Free';
+                planName.classList.remove('plan-pro');
+                planDetail.textContent = '3 searches/day';
+                heroPlanName.textContent = 'Free';
+                heroPlanName.classList.remove('plan-pro');
+                heroPlanDetail.textContent = '3 searches/day';
+            }
 
             // Show upgrade or manage button based on tier
             upgradeMenuBtn.hidden = isPro;
@@ -1043,6 +1068,11 @@ document.addEventListener('DOMContentLoaded', () => {
             categories = data.categories || {};
             const rounds = data.rounds || 1;
 
+            // Capture usage info
+            if (data.usage) {
+                usageInfo = data.usage;
+            }
+
             renderResults(rounds);
 
             // Save to history if logged in
@@ -1061,11 +1091,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderResults(rounds) {
         const categoryOrder = ['Professional', 'Playful', 'Creative', 'Minimal'];
         const totalDomains = Object.values(categories).flat().length;
+        const isPro = currentUser && currentUser.subscriptionTier === 'pro';
 
         // Small inline badge for multi-round searches
         const roundsBadge = rounds > 1
             ? `<span class="rounds-badge">${rounds} rounds · ${totalDomains} found</span>`
             : '';
+
+        // Usage banner for free users
+        let usageBannerHtml = '';
+        if (usageInfo && !usageInfo.unlimited) {
+            const remaining = usageInfo.limit - usageInfo.used;
+            const isLow = remaining <= 1;
+            usageBannerHtml = `
+                <div class="usage-banner${isLow ? ' usage-low' : ''}">
+                    <span class="usage-text">${usageInfo.used}/${usageInfo.limit} searches used today</span>
+                    ${isLow ? '<button class="usage-upgrade-btn">Upgrade for unlimited</button>' : ''}
+                </div>
+            `;
+        }
 
         const sectionsHtml = categoryOrder
             .map((cat, idx) => {
@@ -1090,7 +1134,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }).join('');
 
-        resultsEl.innerHTML = sectionsHtml;
+        // Upgrade CTA for free users at the bottom
+        let upgradeCTAHtml = '';
+        if (!isPro) {
+            upgradeCTAHtml = `
+                <div class="results-upgrade-cta">
+                    <span class="cta-icon">✦</span>
+                    <span class="cta-text">Enjoying Colette? Get unlimited searches with Pro</span>
+                    <button class="cta-upgrade-btn">Upgrade — $29/year</button>
+                </div>
+            `;
+        }
+
+        resultsEl.innerHTML = usageBannerHtml + sectionsHtml + upgradeCTAHtml;
 
         // Add refresh button handlers
         resultsEl.querySelectorAll('.cache-refresh').forEach(btn => {
@@ -1142,6 +1198,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderResults(1);
             });
         });
+
+        // Add upgrade button handlers (usage banner and CTA)
+        resultsEl.querySelectorAll('.usage-upgrade-btn, .cta-upgrade-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (authToken) {
+                    openUpgradeModal();
+                } else {
+                    openLoginModal('Sign in to upgrade to Pro');
+                }
+            });
+        });
+
+        // Add check .com button handlers
+        resultsEl.querySelectorAll('.check-com-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const domain = btn.dataset.domain;
+                btn.disabled = true;
+                btn.textContent = '...';
+
+                const result = await checkComSite(domain);
+                if (result) {
+                    // Re-render to show the result
+                    renderResults(1);
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'check .com';
+                }
+            });
+        });
     }
 
     function renderDomainCard(domain, index) {
@@ -1165,6 +1251,29 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>`;
         }
 
+        // Check .com status for non-.com domains
+        const isComDomain = domain.name.toLowerCase().endsWith('.com');
+        let comCheckHtml = '';
+        if (!isComDomain) {
+            const baseName = extractBaseName(domain.name);
+            const comCheck = comSiteChecks.get(baseName);
+            if (comCheck) {
+                // Already checked - show result
+                if (comCheck.status === 'active') {
+                    comCheckHtml = `<span class="com-status com-active" title="${comCheck.domain} has an active website">⚠ .com active</span>`;
+                } else if (comCheck.status === 'parked') {
+                    comCheckHtml = `<span class="com-status com-parked" title="${comCheck.domain} is parked/for sale">◐ .com parked</span>`;
+                } else if (comCheck.status === 'available') {
+                    comCheckHtml = `<span class="com-status com-available" title="${comCheck.domain} is available!">✓ .com free</span>`;
+                } else {
+                    comCheckHtml = `<span class="com-status com-inactive" title="${comCheck.domain} has no active site">✓ .com clear</span>`;
+                }
+            } else {
+                // Not checked yet - show link
+                comCheckHtml = `<button class="check-com-btn" data-domain="${escapeHtml(domain.name)}" title="Check if ${baseName}.com has a website">check .com</button>`;
+            }
+        }
+
         const isFavorited = userFavorites.has(domain.name.toLowerCase());
         const heartIcon = isFavorited ? '♥' : '♡';
         const heartClass = isFavorited ? 'favorited' : '';
@@ -1186,6 +1295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="domain-name-row">
                     <span class="domain-name">${escapeHtml(domain.name)}</span>
                     ${ownedBadgeHtml}
+                    ${comCheckHtml}
                 </div>
                 <div class="domain-row">
                     <div class="domain-meta">${metaHtml}</div>
@@ -1201,6 +1311,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+    }
+
+    function extractBaseName(domain) {
+        const tlds = ['.com', '.io', '.co', '.net', '.org', '.ai', '.app', '.dev', '.me', '.xyz', '.tech', '.site', '.online'];
+        const lowerDomain = domain.toLowerCase();
+        for (const tld of tlds) {
+            if (lowerDomain.endsWith(tld)) {
+                return lowerDomain.slice(0, -tld.length);
+            }
+        }
+        const lastDot = lowerDomain.lastIndexOf('.');
+        return lastDot > 0 ? lowerDomain.slice(0, lastDot) : lowerDomain;
+    }
+
+    async function checkComSite(domain) {
+        const baseName = extractBaseName(domain);
+
+        try {
+            const response = await fetch('/api/check-com', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                comSiteChecks.set(baseName, {
+                    status: data.status,
+                    domain: data.domain
+                });
+                return data;
+            }
+        } catch (err) {
+            console.error('Failed to check .com site:', err);
+        }
+        return null;
     }
 
     async function refreshDomain(domainName) {

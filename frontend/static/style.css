@@ -1350,6 +1350,131 @@ body {
     font-size: 0.9rem;
 }
 
+/* Plan info in dropdown */
+.dropdown-plan-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.75rem 1rem;
+}
+
+.plan-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--cream-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.plan-name.plan-pro {
+    color: var(--gold);
+}
+
+.plan-detail {
+    font-size: 0.7rem;
+    color: var(--cream-dim);
+    opacity: 0.7;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0;
+}
+
+/* ==========================================================================
+   Usage Banner
+   ========================================================================== */
+
+.usage-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+}
+
+.usage-banner.usage-low {
+    border-color: rgba(251, 191, 36, 0.3);
+    background: rgba(251, 191, 36, 0.05);
+}
+
+.usage-text {
+    font-size: 0.8rem;
+    color: var(--cream-dim);
+}
+
+.usage-low .usage-text {
+    color: var(--gold);
+}
+
+.usage-upgrade-btn {
+    padding: 0.4rem 0.75rem;
+    background: var(--gold);
+    border: none;
+    border-radius: 3px;
+    color: #0a0a0a;
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.usage-upgrade-btn:hover {
+    background: var(--cream);
+}
+
+/* ==========================================================================
+   Results Upgrade CTA
+   ========================================================================== */
+
+.results-upgrade-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    margin-top: 2rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.cta-icon {
+    color: var(--gold);
+    font-size: 1.1rem;
+}
+
+.cta-text {
+    font-size: 0.85rem;
+    color: var(--cream-dim);
+}
+
+.cta-upgrade-btn {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    color: var(--gold);
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.cta-upgrade-btn:hover {
+    background: var(--gold);
+    color: #0a0a0a;
+}
+
 /* ==========================================================================
    Favorites View
    ========================================================================== */
@@ -2127,4 +2252,58 @@ body {
         height: 36px;
         font-size: 1.1rem;
     }
+}
+
+/* ==========================================================================
+   .com Site Check Feature
+   ========================================================================== */
+
+.check-com-btn {
+    padding: 0.15rem 0.4rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--cream-dim);
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-left: 0.5rem;
+}
+
+.check-com-btn:hover {
+    border-color: var(--gold-dim);
+    color: var(--cream);
+}
+
+.check-com-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+.com-status {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    margin-left: 0.5rem;
+}
+
+.com-status.com-active {
+    background: rgba(199, 95, 95, 0.15);
+    color: var(--error);
+}
+
+.com-status.com-parked {
+    background: rgba(196, 168, 85, 0.15);
+    color: var(--gold);
+}
+
+.com-status.com-available {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.com-status.com-inactive {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--cream-dim);
 }

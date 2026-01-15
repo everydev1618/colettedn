@@ -138,6 +138,11 @@ func (l *Limiter) Allow(ip string, isPro bool) Result {
 	}
 }
 
+// DailyLimit returns the configured daily limit
+func (l *Limiter) DailyLimit() int {
+	return l.dailyLimit
+}
+
 // cleanup periodically removes old data
 func (l *Limiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
