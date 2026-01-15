@@ -10,6 +10,80 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <button class="modal-close" id="login-close">&times;</button>
+            <div class="modal-icon">✦</div>
+            <h2 class="modal-title">Welcome to Colette</h2>
+            <p class="modal-text">Enter your email to sign in or create an account</p>
+
+            <form id="login-form" class="login-form">
+                <input
+                    type="email"
+                    id="login-email"
+                    class="login-input"
+                    placeholder="you@example.com"
+                    required
+                >
+                <button type="submit" class="login-submit" id="login-submit-btn">
+                    <span class="login-btn-text">Send Magic Link</span>
+                    <span class="login-btn-loading" hidden>
+                        <span class="spinner"></span>
+                    </span>
+                </button>
+            </form>
+
+            <div id="login-sent" class="login-sent" hidden>
+                <div class="sent-icon">✓</div>
+                <p class="sent-text">Check your email!</p>
+                <p class="sent-subtext">We sent a login link to <span id="sent-email"></span></p>
+            </div>
+
+            <p id="login-error" class="login-error" hidden></p>
+        </div>
+    </div>
+
+    <!-- Upgrade Modal -->
+    <div id="upgrade-modal" class="modal-overlay" hidden>
+        <div class="modal-content upgrade-modal">
+            <button class="modal-close" id="upgrade-close">&times;</button>
+            <div class="modal-icon">✦</div>
+            <h2 class="modal-title">Upgrade to Pro</h2>
+            <p class="modal-text">Unlock unlimited domain searches</p>
+
+            <div class="upgrade-features">
+                <div class="upgrade-feature">
+                    <span class="feature-icon">∞</span>
+                    <span class="feature-text">Unlimited searches</span>
+                </div>
+                <div class="upgrade-feature">
+                    <span class="feature-icon">♥</span>
+                    <span class="feature-text">Save favorites</span>
+                </div>
+                <div class="upgrade-feature">
+                    <span class="feature-icon">↺</span>
+                    <span class="feature-text">Search history</span>
+                </div>
+            </div>
+
+            <div class="upgrade-pricing">
+                <span class="upgrade-price">$29</span>
+                <span class="upgrade-period">/year</span>
+            </div>
+            <p class="upgrade-savings">Just $2.42/month — cancel anytime</p>
+
+            <button type="button" class="upgrade-btn" id="upgrade-btn">
+                <span class="upgrade-btn-text">Upgrade Now</span>
+                <span class="upgrade-btn-loading" hidden>
+                    <span class="spinner"></span>
+                </span>
+            </button>
+
+            <p id="upgrade-error" class="login-error" hidden></p>
+        </div>
+    </div>
+
     <!-- Maintenance Overlay -->
     <div id="maintenance-overlay" class="maintenance-overlay" hidden>
         <div class="maintenance-content">
@@ -31,6 +105,32 @@
 
     <!-- Hero State (initial landing page) -->
     <div id="hero-state" class="hero-state">
+        <div class="hero-auth">
+            <button id="hero-sign-in-btn" class="hero-sign-in-btn">Sign in</button>
+            <div id="hero-user-dropdown" class="hero-user-dropdown" hidden>
+                <button id="hero-user-btn" class="hero-user-btn">
+                    <span id="hero-user-email" class="hero-user-email"></span>
+                    <span class="dropdown-arrow">▼</span>
+                </button>
+                <div id="hero-dropdown-menu" class="hero-dropdown-menu" hidden>
+                    <button id="hero-favorites-btn" class="dropdown-item">
+                        <span class="dropdown-icon">♥</span> Favorites
+                    </button>
+                    <button id="hero-history-btn" class="dropdown-item">
+                        <span class="dropdown-icon">↺</span> History
+                    </button>
+                    <button id="hero-upgrade-btn" class="dropdown-item dropdown-upgrade" hidden>
+                        <span class="dropdown-icon">✦</span> Upgrade to Pro
+                    </button>
+                    <button id="hero-manage-btn" class="dropdown-item" hidden>
+                        <span class="dropdown-icon">⚙</span> Manage subscription
+                    </button>
+                    <button id="hero-logout-btn" class="dropdown-item">
+                        <span class="dropdown-icon">→</span> Sign out
+                    </button>
+                </div>
+            </div>
+        </div>
         <div class="hero-content">
             <div class="hero-logo">
                 <span class="hero-mark">✦</span>
@@ -66,11 +166,11 @@
     <div class="app-layout" hidden>
         <!-- Top Search Bar -->
         <header class="top-bar">
-            <div class="logo">
+            <a href="#" class="logo" id="logo-home">
                 <span class="logo-mark">✦</span>
                 <h1 class="logo-text">Colette</h1>
                 <span class="logo-suffix">DN</span>
-            </div>
+            </a>
 
             <form id="generate-form" class="search-form">
                 <textarea
@@ -94,6 +194,34 @@
                     </span>
                 </button>
             </form>
+
+            <!-- User Menu -->
+            <div class="user-menu">
+                <button id="sign-in-btn" class="sign-in-btn">Sign in</button>
+                <div id="user-dropdown" class="user-dropdown" hidden>
+                    <button id="user-btn" class="user-btn">
+                        <span id="user-email" class="user-email"></span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div id="dropdown-menu" class="dropdown-menu" hidden>
+                        <button id="favorites-btn" class="dropdown-item">
+                            <span class="dropdown-icon">♥</span> Favorites
+                        </button>
+                        <button id="history-btn" class="dropdown-item">
+                            <span class="dropdown-icon">↺</span> History
+                        </button>
+                        <button id="upgrade-menu-btn" class="dropdown-item dropdown-upgrade" hidden>
+                            <span class="dropdown-icon">✦</span> Upgrade to Pro
+                        </button>
+                        <button id="manage-btn" class="dropdown-item" hidden>
+                            <span class="dropdown-icon">⚙</span> Manage subscription
+                        </button>
+                        <button id="logout-btn" class="dropdown-item">
+                            <span class="dropdown-icon">→</span> Sign out
+                        </button>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <!-- Main Content -->
@@ -103,6 +231,34 @@
             </div>
 
             <div id="results" class="results" hidden></div>
+
+            <!-- Favorites View -->
+            <div id="favorites-view" class="favorites-view" hidden>
+                <div class="favorites-header">
+                    <h2 class="favorites-title">Your Favorites</h2>
+                    <button id="favorites-close" class="favorites-close">&times; Back to search</button>
+                </div>
+                <div id="favorites-list" class="favorites-list">
+                    <div class="favorites-empty">
+                        <p>No favorites yet</p>
+                        <p class="favorites-empty-hint">Heart domains to save them here</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History View -->
+            <div id="history-view" class="history-view" hidden>
+                <div class="history-header">
+                    <h2 class="history-title">Search History</h2>
+                    <button id="history-close" class="history-close">&times; Back to search</button>
+                </div>
+                <div id="history-list" class="history-list">
+                    <div class="history-empty">
+                        <p>No searches yet</p>
+                        <p class="history-empty-hint">Your searches will appear here</p>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <footer class="app-footer">

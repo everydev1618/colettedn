@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/everydev1618/colettedn/internal/handler"
+	"github.com/everydev1618/colettedn/internal/user"
 	"github.com/joho/godotenv"
 )
 
@@ -22,7 +23,34 @@ func main() {
 		port = "8080"
 	}
 
-	h := handler.New()
+	// Initialize user service (in-memory for local dev)
+	userService := user.NewMemoryService()
+
+	h := handler.New(userService)
+
+	// Initialize auth handler
+	authHandler, err := handler.NewAuthHandler()
+	if err != nil {
+		log.Printf("[WARN] Failed to initialize auth handler: %v", err)
+	}
+
+	// Initialize favorites handler
+	favHandler, err := handler.NewFavoritesHandler()
+	if err != nil {
+		log.Printf("[WARN] Failed to initialize favorites handler: %v", err)
+	}
+
+	// Initialize history handler
+	histHandler, err := handler.NewHistoryHandler()
+	if err != nil {
+		log.Printf("[WARN] Failed to initialize history handler: %v", err)
+	}
+
+	// Initialize billing handler
+	billingHandler, err := handler.NewBillingHandler(userService)
+	if err != nil {
+		log.Printf("[WARN] Failed to initialize billing handler: %v", err)
+	}
 
 	mux := http.NewServeMux()
 
@@ -30,6 +58,37 @@ func main() {
 	mux.HandleFunc("POST /api/generate", h.GenerateDomains)
 	mux.HandleFunc("POST /api/check", h.CheckAvailability)
 	mux.HandleFunc("GET /api/health", h.Health)
+
+	// Auth routes
+	if authHandler != nil {
+		mux.HandleFunc("POST /api/auth/login", authHandler.Login)
+		mux.HandleFunc("GET /api/auth/verify", authHandler.Verify)
+		mux.HandleFunc("POST /api/auth/logout", authHandler.Logout)
+
+		authMiddleware := authHandler.GetMiddleware()
+
+		// Protected routes (require auth)
+		mux.Handle("GET /api/user/me", authMiddleware.RequireAuth(http.HandlerFunc(authHandler.Me)))
+
+		if favHandler != nil {
+			mux.Handle("GET /api/favorites", authMiddleware.RequireAuth(http.HandlerFunc(favHandler.List)))
+			mux.Handle("POST /api/favorites", authMiddleware.RequireAuth(http.HandlerFunc(favHandler.Add)))
+			mux.Handle("DELETE /api/favorites/", authMiddleware.RequireAuth(http.HandlerFunc(favHandler.Remove)))
+		}
+
+		if histHandler != nil {
+			mux.Handle("GET /api/history", authMiddleware.RequireAuth(http.HandlerFunc(histHandler.List)))
+			mux.Handle("POST /api/history", authMiddleware.RequireAuth(http.HandlerFunc(histHandler.Save)))
+			mux.Handle("DELETE /api/history/", authMiddleware.RequireAuth(http.HandlerFunc(histHandler.Delete)))
+		}
+
+		// Billing routes (require auth except webhook)
+		if billingHandler != nil {
+			mux.Handle("POST /api/billing/checkout", authMiddleware.RequireAuth(http.HandlerFunc(billingHandler.Checkout)))
+			mux.Handle("POST /api/billing/portal", authMiddleware.RequireAuth(http.HandlerFunc(billingHandler.Portal)))
+			mux.HandleFunc("POST /api/billing/webhook", billingHandler.Webhook)
+		}
+	}
 
 	// Serve frontend
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("frontend/static"))))

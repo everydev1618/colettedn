@@ -122,36 +122,42 @@ Since these are taken, try COMPLETELY DIFFERENT approaches:
 - Consider phonetic variations that don't resemble the taken names`, strings.Join(takenDomains, ", "))
 	}
 
-	return fmt.Sprintf(`Generate creative domain name suggestions for this project, organized by personality/vibe:
+	return fmt.Sprintf(`Generate domain name suggestions for this project, organized by style:
 
 PROJECT: "%s"
 
 TLDs to use: %s%s
 
-Generate names in 4 categories:
+First, identify 5-10 relevant keywords, concepts, and metaphors for this project. Think about:
+- Industry-specific terminology
+- Related activities, tools, or settings
+- Emotions or outcomes the project evokes
+- Geographic or cultural references if relevant
 
-1. **Professional** - Clean, trustworthy, corporate feel. Think "Stripe", "Notion", "Linear", "Figma". Names that instill confidence and credibility.
+Then generate names in 4 categories:
 
-2. **Playful** - Fun, friendly, approachable, maybe quirky. Think "Slack", "Discord", "Giphy". Names with personality that feel welcoming.
+1. **Professional** - Clean, credible, straightforward. Names that clearly communicate what the business does. Think: established brands, trustworthy institutions.
 
-3. **Techy** - Cutting-edge, startup-y, Silicon Valley feel. Think "Vercel", "Supabase", "Deno", "Bun". Futuristic neologisms.
+2. **Playful** - Fun, friendly, memorable. Names with personality that make people smile. Think: wordplay that actually relates to the business, friendly mascot-style names, approachable compounds.
 
-4. **Minimal** - Simple, elegant, understated. Think "Arc", "Craft", "Bear", "Loom". Short, memorable, less is more.
+3. **Creative** - Clever inventions that still connect to the business. Unexpected portmanteaus, surprising metaphors, or invented words that evoke the right feeling. Go beyond the obvious combinations - find the unexpected angle. Must still be relevant but shouldn't be the first thing anyone would think of.
+
+4. **Minimal** - Short, clean, elegant. Single words or tight two-syllable compounds. Premium feel. Think: uncommon but real dictionary words, poetic terms, or unexpected single-word metaphors. Avoid obvious category words that everyone would think of.
 
 Guidelines:
 - Generate 12-15 names per category (48-60 total)
-- Prioritize .com domains (60%% of suggestions)
-- Use invented/brandable words that are likely to be available
-- Keep names short (ideally 4-10 characters before TLD)
-- Avoid hyphens and numbers
-- Be creative - don't use literal words from the description
-- Each category should have a distinct feel
+- Mix TLDs naturally - use .com where it fits, but don't force it
+- **CRITICAL: Every name must clearly relate to the project.** A stranger should be able to guess the business from the domain name.
+- **Never truncate or abbreviate words** - use complete words only. "cric", "crick", "btfy" are all bad. If a word is too long, use a different word entirely or a related synonym.
+- Aim for 6-14 characters before the TLD - short enough to type, long enough to be complete words
+- No hyphens or numbers
+- Invented words are fine but must evoke the business (e.g., "Spotify" evokes music/audio)
 
 Return ONLY valid JSON in this exact format:
 {
   "Professional": ["domain1.com", "domain2.io"],
   "Playful": ["domain3.com", "domain4.co"],
-  "Techy": ["domain5.com", "domain6.dev"],
+  "Creative": ["domain5.com", "domain6.dev"],
   "Minimal": ["domain7.com", "domain8.io"]
 }`, description, strings.Join(tlds, ", "), exclusionNote)
 }

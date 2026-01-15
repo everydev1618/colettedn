@@ -10,24 +10,28 @@ import (
 	"strings"
 	"time"
 
+	"github.com/everydev1618/colettedn/internal/auth"
 	"github.com/everydev1618/colettedn/internal/cache"
 	"github.com/everydev1618/colettedn/internal/generator"
 	"github.com/everydev1618/colettedn/internal/killswitch"
 	"github.com/everydev1618/colettedn/internal/namecheap"
 	"github.com/everydev1618/colettedn/internal/ratelimit"
+	"github.com/everydev1618/colettedn/internal/user"
 )
 
 type Handler struct {
-	gen     *generator.Generator
-	nc      *namecheap.Client
-	cache   cache.Cacher
-	limiter *ratelimit.Limiter
-	ks      *killswitch.KillSwitch
+	gen         *generator.Generator
+	nc          *namecheap.Client
+	cache       cache.Cacher
+	limiter     *ratelimit.Limiter
+	ks          *killswitch.KillSwitch
+	userService user.UserService
 }
 
-func New() *Handler {
+func New(userService user.UserService) *Handler {
 	h := &Handler{
-		gen: generator.New(os.Getenv("ANTHROPIC_API_KEY")),
+		gen:         generator.New(os.Getenv("ANTHROPIC_API_KEY")),
+		userService: userService,
 	}
 
 	// Initialize rate limiter (configurable via env vars)
@@ -91,9 +95,10 @@ type GenerateRequest struct {
 }
 
 type GenerateResponse struct {
-	Categories map[string][]DomainResult `json:"categories"`
-	Rounds     int                       `json:"rounds"`
-	Error      string                    `json:"error,omitempty"`
+	Categories       map[string][]DomainResult `json:"categories"`
+	Rounds           int                       `json:"rounds"`
+	Error            string                    `json:"error,omitempty"`
+	UpgradeAvailable bool                      `json:"upgradeAvailable,omitempty"`
 }
 
 const (
@@ -131,13 +136,23 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check user subscription tier
+	isPro := false
+	authUser := auth.GetUser(r.Context())
+	if authUser != nil && h.userService != nil {
+		fullUser, err := h.userService.GetByID(r.Context(), authUser.UserID)
+		if err == nil && fullUser.SubscriptionTier == user.TierPro {
+			isPro = true
+		}
+	}
+
 	// Rate limiting
 	ip := getClientIP(r)
-	rl := h.limiter.Allow(ip)
+	rl := h.limiter.Allow(ip, isPro)
 	if !rl.Allowed {
 		// Log rate limit violations for monitoring/alerting
-		log.Printf("[RATE_LIMIT] ip=%s reason=%s daily_used=%d minute_used=%d",
-			ip, rl.Reason, rl.DailyUsed, rl.MinuteUsed)
+		log.Printf("[RATE_LIMIT] ip=%s reason=%s daily_used=%d minute_used=%d isPro=%v",
+			ip, rl.Reason, rl.DailyUsed, rl.MinuteUsed, isPro)
 
 		// Force refresh kill switch on rate limit violations (faster response to attacks)
 		if h.ks != nil {
@@ -146,9 +161,14 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", rl.RetryAfter.Seconds()))
 		w.Header().Set("X-RateLimit-Remaining", "0")
-		writeJSON(w, http.StatusTooManyRequests, GenerateResponse{
-			Error: fmt.Sprintf("Rate limit exceeded. Try again in %s.", formatDuration(rl.RetryAfter)),
-		})
+
+		// Include upgrade hint for non-pro users hitting daily limit
+		errorMsg := fmt.Sprintf("Rate limit exceeded. Try again in %s.", formatDuration(rl.RetryAfter))
+		response := GenerateResponse{Error: errorMsg}
+		if rl.Reason == ratelimit.DailyLimit && !isPro {
+			response.UpgradeAvailable = true
+		}
+		writeJSON(w, http.StatusTooManyRequests, response)
 		return
 	}
 	w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", rl.DailyRemaining))
@@ -335,7 +355,7 @@ func countAvailable(categories map[string][]DomainResult) int {
 }
 
 func hasEnoughPerCategory(categories map[string][]DomainResult) bool {
-	requiredCategories := []string{"Professional", "Playful", "Techy", "Minimal"}
+	requiredCategories := []string{"Professional", "Playful", "Creative", "Minimal"}
 	for _, cat := range requiredCategories {
 		if len(categories[cat]) < minPerCategory {
 			return false

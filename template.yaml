@@ -26,6 +26,17 @@ Parameters:
   NamecheapUsername:
     Type: String
     Description: Namecheap account username
+  StripeSecretKey:
+    Type: String
+    NoEcho: true
+    Description: Stripe secret key for billing
+  StripeWebhookSecret:
+    Type: String
+    NoEcho: true
+    Description: Stripe webhook signing secret
+  StripePriceId:
+    Type: String
+    Description: Stripe price ID for annual subscription
 
 Resources:
   # VPC for Lambda with static outbound IP
@@ -186,12 +197,33 @@ Resources:
           NAMECHEAP_USERNAME: !Ref NamecheapUsername
           NAMECHEAP_CLIENT_IP: !GetAtt NatEIP.PublicIp
           NAMECHEAP_SANDBOX: "false"
+          APP_URL: !Sub "https://${DomainName}"
+          FROM_EMAIL: !Sub "noreply@${DomainName}"
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          STRIPE_PRICE_ID: !Ref StripePriceId
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CacheTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TokensTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FavoritesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref HistoryTable
         - VPCAccessPolicy: {}
         - SSMParameterReadPolicy:
             ParameterName: colettedn/*
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  ses:FromAddress: !Sub "noreply@${DomainName}"
       FunctionUrlConfig:
         AuthType: NONE
         Cors:
@@ -227,6 +259,86 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+
+  # Users table for authentication
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: colettedn-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+        - AttributeName: stripe_customer_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: stripe-customer-index
+          KeySchema:
+            - AttributeName: stripe_customer_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Auth tokens table (magic links and sessions)
+  TokensTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: colettedn-tokens
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: token
+          AttributeType: S
+      KeySchema:
+        - AttributeName: token
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # Favorites table
+  FavoritesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: colettedn-favorites
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: domain
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: domain
+          KeyType: RANGE
+
+  # Search history table
+  HistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: colettedn-history
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: searched_at
+          AttributeType: N
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: searched_at
+          KeyType: RANGE
 
   # SSL Certificate
   Certificate:

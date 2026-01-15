@@ -68,21 +68,22 @@ func New(cfg Config) *Limiter {
 }
 
 // Allow checks if the request should be allowed and records it if so.
-func (l *Limiter) Allow(ip string) Result {
+// isPro indicates if the user has a pro subscription (unlimited daily searches).
+func (l *Limiter) Allow(ip string, isPro bool) Result {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
-	// Check daily limit first
+	// Track daily usage for analytics, but only enforce for non-pro users
 	dc := l.dailyCounts[ip]
 	if dc == nil || dc.date != today {
 		dc = &dailyCount{count: 0, date: today}
 		l.dailyCounts[ip] = dc
 	}
 
-	// Check per-minute rate
+	// Check per-minute rate (applies to everyone to prevent abuse)
 	cutoff := now.Add(-time.Minute)
 	var recent []time.Time
 	for _, t := range l.requests[ip] {
@@ -91,7 +92,8 @@ func (l *Limiter) Allow(ip string) Result {
 		}
 	}
 
-	if dc.count >= l.dailyLimit {
+	// Daily limit only applies to non-pro users
+	if !isPro && dc.count >= l.dailyLimit {
 		// Calculate time until midnight UTC
 		tomorrow := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.UTC)
 		return Result{
@@ -122,10 +124,15 @@ func (l *Limiter) Allow(ip string) Result {
 	l.requests[ip] = append(recent, now)
 	dc.count++
 
+	dailyRemaining := l.dailyLimit - dc.count
+	if isPro {
+		dailyRemaining = -1 // Indicate unlimited
+	}
+
 	return Result{
 		Allowed:        true,
 		Reason:         NotDenied,
-		DailyRemaining: l.dailyLimit - dc.count,
+		DailyRemaining: dailyRemaining,
 		DailyUsed:      dc.count,
 		MinuteUsed:     len(recent) + 1,
 	}
