@@ -83,9 +83,6 @@ Resources:
     Properties:
       DomainName: !Ref DomainName
       ValidationMethod: DNS
-      DomainValidationOptions:
-        - DomainName: !Ref DomainName
-          HostedZoneId: !Ref AWS::NoValue
 
   # Custom Domain for API Gateway
   ApiDomainName:
