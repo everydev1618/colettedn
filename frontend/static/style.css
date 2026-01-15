@@ -55,7 +55,7 @@ body {
 .top-bar {
     background: var(--bg-bar);
     border-bottom: 1px solid var(--border);
-    padding: 1rem 2rem;
+    padding: 1.5rem 2rem;
     display: flex;
     align-items: center;
     gap: 2rem;
@@ -67,7 +67,7 @@ body {
 @media (max-width: 900px) {
     .top-bar {
         flex-wrap: wrap;
-        padding: 1rem 1.25rem;
+        padding: 1.25rem 1.25rem;
         gap: 1rem;
     }
 }
