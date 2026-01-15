@@ -41,12 +41,12 @@ type claudeResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func (g *Generator) Generate(ctx context.Context, keywords []string, industry, vibe string, tlds []string) ([]string, error) {
+func (g *Generator) Generate(ctx context.Context, description string, tlds []string) ([]string, error) {
 	if g.apiKey == "" {
 		return nil, fmt.Errorf("ANTHROPIC_API_KEY not set")
 	}
 
-	prompt := buildPrompt(keywords, industry, vibe, tlds)
+	prompt := buildPrompt(description, tlds)
 
 	reqBody := claudeRequest{
 		Model:     "claude-sonnet-4-20250514",
@@ -92,34 +92,25 @@ func (g *Generator) Generate(ctx context.Context, keywords []string, industry, v
 	return parseDomains(claudeResp.Content[0].Text), nil
 }
 
-func buildPrompt(keywords []string, industry, vibe string, tlds []string) string {
-	var sb strings.Builder
+func buildPrompt(description string, tlds []string) string {
+	return fmt.Sprintf(`Generate 50 creative domain name suggestions based on this project description:
 
-	sb.WriteString("Generate 30 creative domain name suggestions for a new brand/project.\n\n")
-	sb.WriteString("Keywords: " + strings.Join(keywords, ", ") + "\n")
+"%s"
 
-	if industry != "" {
-		sb.WriteString("Industry: " + industry + "\n")
-	}
+TLDs to use: %s
 
-	if vibe != "" {
-		sb.WriteString("Vibe/Style: " + vibe + "\n")
-	}
-
-	sb.WriteString("TLDs to use: " + strings.Join(tlds, ", ") + "\n\n")
-
-	sb.WriteString(`Guidelines:
-- Mix different naming strategies: compound words, invented words, prefixes/suffixes, abbreviations
-- Keep names short (ideally under 12 characters before TLD)
-- Make them memorable and easy to spell
+Guidelines:
+- IMPORTANT: Generate at least 60%% of suggestions as .com domains since they're most desirable
+- Use unusual, invented, or uncommon words that are more likely to be available as .com
+- Mix naming strategies: invented words, creative misspellings, word mashups, prefixes/suffixes, metaphors
+- Keep names short (ideally 6-10 characters before TLD)
+- Make them memorable, brandable, and easy to spell
 - Avoid hyphens and numbers
-- Include a variety of the specified TLDs
-- Be creative - don't just combine keywords literally
+- Be creative - capture the essence and vibe, don't just use literal words from the description
+- Think like a startup founder looking for an available .com - get creative with spelling and word combinations
 
 Output format: Return ONLY a JSON array of domain names, nothing else. Example:
-["brandname.com", "coolstartup.io", "myproject.ai"]`)
-
-	return sb.String()
+["brandname.com", "coolstartup.io", "myproject.ai"]`, description, strings.Join(tlds, ", "))
 }
 
 func parseDomains(text string) []string {

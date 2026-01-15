@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Colette DN - AI-powered domain name brainstorming
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 256
+
+Parameters:
+  AnthropicApiKey:
+    Type: String
+    NoEcho: true
+    Description: Anthropic API key for domain generation
+  NamecheapApiUser:
+    Type: String
+    Description: Namecheap API username
+  NamecheapApiKey:
+    Type: String
+    NoEcho: true
+    Description: Namecheap API key
+  NamecheapUsername:
+    Type: String
+    Description: Namecheap account username
+  NamecheapClientIp:
+    Type: String
+    Description: Whitelisted IP for Namecheap API
+
+Resources:
+  ColetteDNFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          ANTHROPIC_API_KEY: !Ref AnthropicApiKey
+          NAMECHEAP_API_USER: !Ref NamecheapApiUser
+          NAMECHEAP_API_KEY: !Ref NamecheapApiKey
+          NAMECHEAP_USERNAME: !Ref NamecheapUsername
+          NAMECHEAP_CLIENT_IP: !Ref NamecheapClientIp
+          NAMECHEAP_SANDBOX: "false"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CacheTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+        Root:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: ANY
+    Metadata:
+      BuildMethod: makefile
+      BuildTarget: build-lambda
+
+  # DynamoDB table for caching (replaces SQLite)
+  CacheTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: colettedn-cache
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: domain
+          AttributeType: S
+      KeySchema:
+        - AttributeName: domain
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"

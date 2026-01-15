@@ -1,0 +1,68 @@
+name: Deploy to AWS Lambda
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  STACK_NAME: colettedn
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: Copy frontend for embedding
+        run: cp -r frontend cmd/lambda/
+
+      - name: Build Lambda function
+        run: |
+          cd cmd/lambda
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o bootstrap .
+          cd ../..
+
+      - name: SAM Build
+        run: sam build --use-container=false
+
+      - name: SAM Deploy
+        run: |
+          sam deploy \
+            --stack-name ${{ env.STACK_NAME }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides \
+              AnthropicApiKey=${{ secrets.ANTHROPIC_API_KEY }} \
+              NamecheapApiUser=${{ secrets.NAMECHEAP_API_USER }} \
+              NamecheapApiKey=${{ secrets.NAMECHEAP_API_KEY }} \
+              NamecheapUsername=${{ secrets.NAMECHEAP_USERNAME }} \
+              NamecheapClientIp=${{ secrets.NAMECHEAP_CLIENT_IP }}
+
+      - name: Get API URL
+        run: |
+          URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          echo "Deployed to: $URL"

@@ -10,9 +10,13 @@ import (
 	"time"
 
 	"github.com/everydev1618/colettedn/internal/handler"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env file if present
+	godotenv.Load()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -24,6 +28,7 @@ func main() {
 
 	// API routes
 	mux.HandleFunc("POST /api/generate", h.GenerateDomains)
+	mux.HandleFunc("POST /api/check", h.CheckAvailability)
 	mux.HandleFunc("GET /api/health", h.Health)
 
 	// Serve frontend
