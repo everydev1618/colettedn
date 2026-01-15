@@ -3,9 +3,11 @@
 package main
 
 import (
+	"bytes"
 	"embed"
 	"io/fs"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
@@ -34,9 +36,7 @@ func main() {
 			return
 		}
 		data, _ := fs.ReadFile(frontendRoot, "index.html")
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		w.Write(data)
+		http.ServeContent(w, r, "index.html", time.Now(), bytes.NewReader(data))
 	})
 
 	lambda.Start(httpadapter.New(mux).ProxyWithContext)
