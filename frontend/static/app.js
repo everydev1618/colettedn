@@ -384,17 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {
         openManageSubscription();
     });
 
-    // Check for upgrade success in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('upgraded') === 'true') {
-        // Refresh user data to get updated tier
-        if (authToken) {
-            fetchCurrentUser();
-        }
-        // Clean up URL
-        history.replaceState(null, '', window.location.pathname);
-    }
-
     // User dropdown handlers
     userBtn.addEventListener('click', () => {
         const isOpen = !dropdownMenu.hidden;
@@ -1023,7 +1012,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getAffiliateUrl(domain) {
-        return `https://www.namecheap.com/domains/registration/results/?domain=${encodeURIComponent(domain)}`;
+        const namecheapUrl = `https://www.namecheap.com/domains/registration/results/?domain=${encodeURIComponent(domain)}`;
+        return `https://namecheap.pxf.io/c/6878241/1632743/5618?u=${encodeURIComponent(namecheapUrl)}`;
     }
 
     function showError(message) {
