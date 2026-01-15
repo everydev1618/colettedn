@@ -196,13 +196,11 @@ Resources:
         AuthType: NONE
         Cors:
           AllowOrigins:
-            - "https://colettedn.com"
-            - "http://localhost:8080"
+            - "*"
           AllowMethods:
-            - POST
-            - OPTIONS
+            - "*"
           AllowHeaders:
-            - Content-Type
+            - "*"
       Events:
         Api:
           Type: HttpApi
