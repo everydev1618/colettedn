@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/everydev1618/colettedn/internal/analytics"
 	"github.com/everydev1618/colettedn/internal/auth"
 	"github.com/everydev1618/colettedn/internal/stripe"
 	"github.com/everydev1618/colettedn/internal/user"
@@ -71,7 +72,7 @@ func (h *BillingHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	successURL := h.appURL + "/?upgraded=true"
+	successURL := h.appURL + "/welcome-pro"
 	cancelURL := h.appURL + "/?cancelled=true"
 
 	session, err := h.stripeClient.CreateCheckoutSession(u.UserID, u.Email, successURL, cancelURL)
@@ -182,6 +183,11 @@ func (h *BillingHandler) handleCheckoutCompleted(r *http.Request, event *stripe.
 		return
 	}
 
+	// Track upgrade (get email from user service)
+	if u, err := h.userService.GetByID(r.Context(), userID); err == nil {
+		analytics.Get().TrackUpgrade(r.Context(), userID, u.Email)
+	}
+
 	log.Printf("[WEBHOOK] User %s upgraded to Pro", userID)
 }
 
@@ -234,6 +240,9 @@ func (h *BillingHandler) handleSubscriptionDeleted(r *http.Request, event *strip
 		log.Printf("[WEBHOOK_ERROR] Failed to downgrade subscription: %v", err)
 		return
 	}
+
+	// Track churn
+	analytics.Get().TrackChurn(r.Context(), u.UserID, u.Email)
 
 	log.Printf("[WEBHOOK] Subscription cancelled for user %s", u.UserID)
 }

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — Colette DN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        :root {
+            --success: #16a34a;
+            --success-bg: #dcfce7;
+            --warning: #ca8a04;
+            --warning-bg: #fef9c3;
+            --danger: #dc2626;
+            --danger-bg: #fee2e2;
+        }
+
+        .admin-layout {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--background);
+        }
+
+        .admin-header {
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface);
+        }
+
+        .admin-header .logo {
+            display: flex;
+            align-items: baseline;
+            gap: 0.25rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .admin-header .logo-mark {
+            font-size: 1.25rem;
+            color: var(--accent);
+        }
+
+        .admin-header .logo-text {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.5rem;
+            font-weight: normal;
+        }
+
+        .admin-badge {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: white;
+            background: var(--accent);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .admin-content {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .admin-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .admin-subtitle {
+            color: var(--muted);
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+
+        .stats-section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-icon {
+            font-size: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .stat-card.highlight {
+            border-color: var(--accent);
+            background: linear-gradient(135deg, var(--surface) 0%, var(--accent-subtle) 100%);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-family: 'Instrument Serif', serif;
+            font-size: 2rem;
+            line-height: 1;
+        }
+
+        .stat-value.small {
+            font-size: 1.5rem;
+        }
+
+        .stat-change {
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .stat-change.positive {
+            color: var(--success);
+        }
+
+        .stat-change.negative {
+            color: var(--danger);
+        }
+
+        .stat-change.neutral {
+            color: var(--muted);
+        }
+
+        .stat-subtext {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 0.25rem;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .panel-body {
+            padding: 1rem;
+        }
+
+        .user-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0.25rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .user-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-email {
+            font-size: 0.875rem;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-meta {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .status-badge.active {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .status-badge.free {
+            background: var(--border);
+            color: var(--muted);
+        }
+
+        .chart-container {
+            height: 200px;
+            position: relative;
+        }
+
+        .mini-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 100%;
+            gap: 4px;
+            padding: 1rem 0;
+        }
+
+        .chart-bar {
+            flex: 1;
+            background: var(--accent-subtle);
+            border-radius: 4px 4px 0 0;
+            min-height: 4px;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .chart-bar:hover {
+            background: var(--accent);
+        }
+
+        .chart-bar:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--foreground);
+            color: var(--background);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            margin-bottom: 4px;
+        }
+
+        .chart-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--muted);
+            margin-top: 0.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+
+        .admin-loading {
+            text-align: center;
+            padding: 4rem;
+            color: var(--muted);
+        }
+
+        .admin-error {
+            text-align: center;
+            padding: 4rem;
+            color: var(--danger);
+        }
+
+        .back-link {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .back-link:hover {
+            color: var(--foreground);
+        }
+
+        .refresh-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            color: var(--muted);
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .last-updated {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: var(--muted);
+        }
+
+        .metric-value {
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <header class="admin-header">
+            <a href="/" class="logo">
+                <span class="logo-mark">✦</span>
+                <span class="logo-text">Colette</span>
+                <span class="admin-badge">Admin</span>
+            </a>
+            <div class="header-actions">
+                <span class="last-updated" id="last-updated"></span>
+                <button class="refresh-btn" id="refresh-btn">Refresh</button>
+                <a href="/" class="back-link">← Back to app</a>
+            </div>
+        </header>
+
+        <main class="admin-content">
+            <div id="loading" class="admin-loading">Loading dashboard...</div>
+            <div id="error" class="admin-error" hidden></div>
+
+            <div id="dashboard" hidden>
+                <h1 class="admin-title">Dashboard</h1>
+                <p class="admin-subtitle">Monitor your business metrics and growth</p>
+
+                <!-- Revenue Section -->
+                <div class="stats-section">
+                    <h2 class="section-title"><span class="section-icon">$</span> Revenue</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card highlight">
+                            <div class="stat-label">Monthly Recurring Revenue</div>
+                            <div class="stat-value" id="mrr">$0</div>
+                            <div class="stat-subtext" id="arr-subtext">$0 ARR</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Pro Subscribers</div>
+                            <div class="stat-value" id="pro-subscribers">0</div>
+                            <div class="stat-change neutral" id="conversion-rate">0% conversion</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Upgrades This Week</div>
+                            <div class="stat-value small" id="upgrades-week">0</div>
+                            <div class="stat-subtext"><span id="upgrades-today">0</span> today</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Churns This Month</div>
+                            <div class="stat-value small" id="churns-month">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Section -->
+                <div class="stats-section">
+                    <h2 class="section-title"><span class="section-icon">👤</span> Users</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Users</div>
+                            <div class="stat-value" id="total-users">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Free Users</div>
+                            <div class="stat-value small" id="free-users">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Signups This Week</div>
+                            <div class="stat-value small" id="signups-week">0</div>
+                            <div class="stat-subtext"><span id="signups-today">0</span> today</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Engagement Section -->
+                <div class="stats-section">
+                    <h2 class="section-title"><span class="section-icon">📊</span> Engagement</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Searches Today</div>
+                            <div class="stat-value" id="searches-today">0</div>
+                            <div class="stat-subtext"><span id="searches-week">0</span> this week</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">All-Time Searches</div>
+                            <div class="stat-value small" id="searches-total">0</div>
+                            <div class="stat-subtext"><span id="avg-searches">0</span> avg/user</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Affiliate Clicks Today</div>
+                            <div class="stat-value small" id="affiliate-today">0</div>
+                            <div class="stat-subtext"><span id="affiliate-week">0</span> this week</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Rate Limit Hits</div>
+                            <div class="stat-value small" id="ratelimit-today">0</div>
+                            <div class="stat-subtext"><span id="ratelimit-week">0</span> this week</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts and Tables -->
+                <div class="two-column">
+                    <!-- Search Trend Chart -->
+                    <div class="panel">
+                        <div class="panel-header">Searches (14 days)</div>
+                        <div class="panel-body">
+                            <div class="chart-container">
+                                <div class="mini-chart" id="searches-chart"></div>
+                            </div>
+                            <div class="chart-labels">
+                                <span id="chart-start"></span>
+                                <span id="chart-end">Today</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Pro Subscribers -->
+                    <div class="panel">
+                        <div class="panel-header">Recent Pro Subscribers</div>
+                        <div class="panel-body">
+                            <ul class="user-list" id="subscribers-list">
+                                <li class="empty-state">No subscribers yet</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Signups Trend Chart -->
+                    <div class="panel">
+                        <div class="panel-header">Signups (14 days)</div>
+                        <div class="panel-body">
+                            <div class="chart-container">
+                                <div class="mini-chart" id="signups-chart"></div>
+                            </div>
+                            <div class="chart-labels">
+                                <span></span>
+                                <span>Today</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Signups -->
+                    <div class="panel">
+                        <div class="panel-header">Recent Signups</div>
+                        <div class="panel-body">
+                            <ul class="user-list" id="signups-list">
+                                <li class="empty-state">No signups yet</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('auth_token');
+        const loadingEl = document.getElementById('loading');
+        const errorEl = document.getElementById('error');
+        const dashboardEl = document.getElementById('dashboard');
+        const lastUpdatedEl = document.getElementById('last-updated');
+        const refreshBtn = document.getElementById('refresh-btn');
+
+        async function loadDashboard() {
+            if (!token) {
+                loadingEl.hidden = true;
+                errorEl.hidden = false;
+                errorEl.textContent = 'Please sign in first';
+                setTimeout(() => window.location.href = '/', 2000);
+                return;
+            }
+
+            try {
+                loadingEl.hidden = false;
+                dashboardEl.hidden = true;
+
+                const res = await fetch('/api/admin/stats', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (res.status === 403) {
+                    loadingEl.hidden = true;
+                    errorEl.hidden = false;
+                    errorEl.textContent = 'Access denied — admin only';
+                    return;
+                }
+
+                if (res.status === 401) {
+                    loadingEl.hidden = true;
+                    errorEl.hidden = false;
+                    errorEl.textContent = 'Please sign in first';
+                    setTimeout(() => window.location.href = '/', 2000);
+                    return;
+                }
+
+                if (!res.ok) {
+                    throw new Error('Failed to load stats');
+                }
+
+                const data = await res.json();
+                renderDashboard(data);
+
+                loadingEl.hidden = true;
+                dashboardEl.hidden = false;
+                lastUpdatedEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+            } catch (err) {
+                loadingEl.hidden = true;
+                errorEl.hidden = false;
+                errorEl.textContent = err.message || 'Failed to load dashboard';
+            }
+        }
+
+        function renderDashboard(data) {
+            // Revenue
+            document.getElementById('mrr').textContent = formatCurrency(data.revenue?.mrr || 0);
+            document.getElementById('arr-subtext').textContent = formatCurrency(data.revenue?.arr || 0) + ' ARR';
+            document.getElementById('pro-subscribers').textContent = data.revenue?.proSubscribers || 0;
+            document.getElementById('conversion-rate').textContent = (data.revenue?.conversionRate || 0).toFixed(1) + '% conversion';
+            document.getElementById('upgrades-week').textContent = data.revenue?.upgradesThisWeek || 0;
+            document.getElementById('upgrades-today').textContent = data.revenue?.upgradesToday || 0;
+            document.getElementById('churns-month').textContent = data.revenue?.churnsThisMonth || 0;
+
+            // Users
+            document.getElementById('total-users').textContent = data.users?.totalUsers || 0;
+            document.getElementById('free-users').textContent = data.users?.freeUsers || 0;
+            document.getElementById('signups-week').textContent = data.users?.signupsThisWeek || 0;
+            document.getElementById('signups-today').textContent = data.users?.signupsToday || 0;
+
+            // Engagement
+            document.getElementById('searches-today').textContent = data.engagement?.searchesToday || 0;
+            document.getElementById('searches-week').textContent = data.engagement?.searchesThisWeek || 0;
+            document.getElementById('searches-total').textContent = formatNumber(data.engagement?.searchesAllTime || 0);
+            document.getElementById('avg-searches').textContent = (data.engagement?.avgSearchesPerUser || 0).toFixed(1);
+            document.getElementById('affiliate-today').textContent = data.engagement?.affiliateClicksToday || 0;
+            document.getElementById('affiliate-week').textContent = data.engagement?.affiliateClicksThisWeek || 0;
+            document.getElementById('ratelimit-today').textContent = data.engagement?.rateLimitHitsToday || 0;
+            document.getElementById('ratelimit-week').textContent = data.operational?.rateLimitHitsWeek || 0;
+
+            // Charts
+            if (data.trends?.searches) {
+                renderChart('searches-chart', data.trends.searches);
+                if (data.trends.searches.length > 0) {
+                    document.getElementById('chart-start').textContent = formatDate(data.trends.searches[0].date);
+                }
+            }
+            if (data.trends?.signups) {
+                renderChart('signups-chart', data.trends.signups);
+            }
+
+            // Recent subscribers
+            const subscribersList = document.getElementById('subscribers-list');
+            if (data.recentSubscribers && data.recentSubscribers.length > 0) {
+                subscribersList.innerHTML = data.recentSubscribers.map(sub => `
+                    <li class="user-item">
+                        <span class="user-email">${escapeHtml(sub.email)}</span>
+                        <span class="user-meta">${formatRelativeTime(sub.subscribedAt)}</span>
+                    </li>
+                `).join('');
+            } else {
+                subscribersList.innerHTML = '<li class="empty-state">No subscribers yet</li>';
+            }
+
+            // Recent signups
+            const signupsList = document.getElementById('signups-list');
+            if (data.recentSignups && data.recentSignups.length > 0) {
+                signupsList.innerHTML = data.recentSignups.map(signup => `
+                    <li class="user-item">
+                        <span class="user-email">${escapeHtml(signup.email)}</span>
+                        <span class="user-meta">${formatRelativeTime(signup.signedUp)}</span>
+                    </li>
+                `).join('');
+            } else {
+                signupsList.innerHTML = '<li class="empty-state">No signups yet</li>';
+            }
+        }
+
+        function renderChart(containerId, data) {
+            const container = document.getElementById(containerId);
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="empty-state">No data</div>';
+                return;
+            }
+
+            const maxValue = Math.max(...data.map(d => d.count), 1);
+
+            container.innerHTML = data.map(d => {
+                const height = Math.max((d.count / maxValue) * 100, 2);
+                const tooltip = `${formatDate(d.date)}: ${d.count}`;
+                return `<div class="chart-bar" style="height: ${height}%" data-tooltip="${tooltip}"></div>`;
+            }).join('');
+        }
+
+        function formatCurrency(value) {
+            return '$' + value.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        }
+
+        function formatNumber(value) {
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
+            return value.toString();
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        function formatRelativeTime(timestamp) {
+            const now = Date.now();
+            const diff = now - timestamp;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (minutes < 1) return 'just now';
+            if (minutes < 60) return minutes + 'm ago';
+            if (hours < 24) return hours + 'h ago';
+            if (days < 7) return days + 'd ago';
+            return new Date(timestamp).toLocaleDateString();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event listeners
+        refreshBtn.addEventListener('click', loadDashboard);
+
+        // Initial load
+        loadDashboard();
+
+        // Auto-refresh every 60 seconds
+        setInterval(loadDashboard, 60000);
+    </script>
+</body>
+</html>

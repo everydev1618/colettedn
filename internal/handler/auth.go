@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/everydev1618/colettedn/internal/analytics"
 	"github.com/everydev1618/colettedn/internal/auth"
 	"github.com/everydev1618/colettedn/internal/user"
 )
@@ -146,12 +147,24 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if this is a new user (for tracking)
+	isNewUser := false
+	_, err = h.userService.GetByEmail(r.Context(), magicToken.Email)
+	if err != nil {
+		isNewUser = true
+	}
+
 	// Get or create user
 	u, err := h.userService.GetOrCreate(r.Context(), magicToken.Email)
 	if err != nil {
 		log.Printf("[USER_ERROR] Failed to get/create user: %v", err)
 		writeJSON(w, http.StatusInternalServerError, VerifyResponse{Error: "Failed to create account"})
 		return
+	}
+
+	// Track signup if new user
+	if isNewUser {
+		analytics.Get().TrackSignup(r.Context(), u.UserID, u.Email)
 	}
 
 	// Create session token

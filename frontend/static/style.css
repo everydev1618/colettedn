@@ -1780,3 +1780,220 @@ body {
 .dropdown-upgrade:hover {
     background: rgba(196, 168, 85, 0.1) !important;
 }
+
+/* ==========================================================================
+   Welcome to Pro Page
+   ========================================================================== */
+
+.welcome-pro-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: var(--bg);
+    animation: fadeIn 0.6s var(--ease);
+}
+
+.welcome-content {
+    text-align: center;
+    max-width: 480px;
+    width: 100%;
+}
+
+.welcome-icon {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 2rem;
+}
+
+.welcome-star {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    font-size: 2.5rem;
+    color: var(--gold);
+    animation: welcomePulse 2s ease-in-out infinite;
+}
+
+.welcome-sparkles {
+    position: absolute;
+    inset: 0;
+    animation: welcomeSparkleRotate 8s linear infinite;
+}
+
+.sparkle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+    opacity: 0;
+    animation: sparkleFloat 2s ease-in-out infinite;
+}
+
+.sparkle:nth-child(1) {
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    animation-delay: 0s;
+}
+
+.sparkle:nth-child(2) {
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    animation-delay: 0.5s;
+}
+
+.sparkle:nth-child(3) {
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    animation-delay: 1s;
+}
+
+.sparkle:nth-child(4) {
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    animation-delay: 1.5s;
+}
+
+@keyframes welcomePulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+@keyframes welcomeSparkleRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes sparkleFloat {
+    0%, 100% {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+}
+
+.welcome-title {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--cream);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.welcome-subtitle {
+    font-size: 1.1rem;
+    color: var(--cream-dim);
+    margin-bottom: 2.5rem;
+}
+
+.welcome-features {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.welcome-feature {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-align: left;
+    padding: 0.5rem 0;
+}
+
+.welcome-feature-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(196, 168, 85, 0.1);
+    border-radius: 8px;
+    color: var(--gold);
+    font-size: 1.25rem;
+}
+
+.welcome-feature-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.welcome-feature-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--cream);
+}
+
+.welcome-feature-desc {
+    font-size: 0.8rem;
+    color: var(--cream-dim);
+}
+
+.welcome-cta {
+    display: inline-block;
+    padding: 1rem 3rem;
+    background: var(--gold);
+    border: none;
+    border-radius: 4px;
+    color: #0a0a0a;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.welcome-cta:hover {
+    background: var(--cream);
+    transform: translateY(-1px);
+}
+
+.welcome-footer {
+    margin-top: 2rem;
+    font-size: 0.8rem;
+    color: var(--cream-dim);
+    opacity: 0.6;
+}
+
+@media (max-width: 600px) {
+    .welcome-title {
+        font-size: 2.25rem;
+    }
+
+    .welcome-features {
+        padding: 1rem;
+    }
+
+    .welcome-feature-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.1rem;
+    }
+}

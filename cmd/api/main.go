@@ -58,6 +58,7 @@ func main() {
 	mux.HandleFunc("POST /api/generate", h.GenerateDomains)
 	mux.HandleFunc("POST /api/check", h.CheckAvailability)
 	mux.HandleFunc("GET /api/health", h.Health)
+	mux.HandleFunc("POST /api/track/affiliate", h.TrackAffiliateClick)
 
 	// Auth routes
 	if authHandler != nil {
@@ -88,10 +89,16 @@ func main() {
 			mux.Handle("POST /api/billing/portal", authMiddleware.RequireAuth(http.HandlerFunc(billingHandler.Portal)))
 			mux.HandleFunc("POST /api/billing/webhook", billingHandler.Webhook)
 		}
+
+		// Admin routes (require admin email)
+		adminHandler := handler.NewAdminHandler(userService)
+		mux.Handle("GET /admin", handler.RequireAdmin(authMiddleware, http.HandlerFunc(adminHandler.Dashboard)))
+		mux.Handle("GET /api/admin/stats", handler.RequireAdmin(authMiddleware, http.HandlerFunc(adminHandler.Stats)))
 	}
 
 	// Serve frontend
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("frontend/static"))))
+	mux.HandleFunc("GET /welcome-pro", h.ServeWelcomePro)
 	mux.HandleFunc("GET /", h.ServeIndex)
 
 	server := &http.Server{

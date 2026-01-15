@@ -69,6 +69,7 @@ func init() {
 	mux.HandleFunc("POST /api/generate", h.GenerateDomains)
 	mux.HandleFunc("POST /api/check", h.CheckAvailability)
 	mux.HandleFunc("GET /api/health", h.Health)
+	mux.HandleFunc("POST /api/track/affiliate", h.TrackAffiliateClick)
 
 	// Auth routes
 	if authHandler != nil {
@@ -99,6 +100,10 @@ func init() {
 			mux.Handle("POST /api/billing/portal", authMiddleware.RequireAuth(http.HandlerFunc(billingHandler.Portal)))
 			mux.HandleFunc("POST /api/billing/webhook", billingHandler.Webhook) // No auth - uses Stripe signature
 		}
+
+		// Admin routes (require admin email)
+		adminHandler := handler.NewAdminHandler(userService)
+		mux.Handle("GET /api/admin/stats", handler.RequireAdmin(authMiddleware, http.HandlerFunc(adminHandler.Stats)))
 	}
 
 	// Static files
@@ -115,6 +120,32 @@ func handleRequest(ctx context.Context, req events.APIGatewayV2HTTPRequest) (eve
 		data, err := fs.ReadFile(frontendRoot, "index.html")
 		if err != nil {
 			return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: "Error reading index.html"}, nil
+		}
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 200,
+			Headers:    map[string]string{"Content-Type": "text/html; charset=utf-8"},
+			Body:       string(data),
+		}, nil
+	}
+
+	// Handle welcome-pro page
+	if path == "/welcome-pro" {
+		data, err := fs.ReadFile(frontendRoot, "welcome-pro.html")
+		if err != nil {
+			return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: "Error reading welcome-pro.html"}, nil
+		}
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 200,
+			Headers:    map[string]string{"Content-Type": "text/html; charset=utf-8"},
+			Body:       string(data),
+		}, nil
+	}
+
+	// Handle admin page (auth check happens client-side via API)
+	if path == "/admin" {
+		data, err := fs.ReadFile(frontendRoot, "admin.html")
+		if err != nil {
+			return events.APIGatewayV2HTTPResponse{StatusCode: 500, Body: "Error reading admin.html"}, nil
 		}
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 200,

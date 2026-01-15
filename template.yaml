@@ -213,6 +213,8 @@ Resources:
             TableName: !Ref FavoritesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref HistoryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AnalyticsTable
         - VPCAccessPolicy: {}
         - SSMParameterReadPolicy:
             ParameterName: colettedn/*
@@ -339,6 +341,26 @@ Resources:
           KeyType: HASH
         - AttributeName: searched_at
           KeyType: RANGE
+
+  # Analytics table for tracking metrics
+  AnalyticsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: colettedn-analytics
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
   # SSL Certificate
   Certificate:

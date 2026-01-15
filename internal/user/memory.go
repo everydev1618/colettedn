@@ -103,3 +103,72 @@ func (s *MemoryService) GetByStripeCustomerID(ctx context.Context, customerID st
 
 	return nil, ErrUserNotFound
 }
+
+func (s *MemoryService) GetStats(ctx context.Context) (*UserStats, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	stats := &UserStats{}
+	for _, user := range s.users {
+		stats.TotalUsers++
+		if user.SubscriptionTier == TierPro {
+			stats.ProUsers++
+		}
+	}
+	stats.FreeUsers = stats.TotalUsers - stats.ProUsers
+	stats.MRR = float64(stats.ProUsers) * 29.0 / 12.0
+
+	return stats, nil
+}
+
+func (s *MemoryService) ListProUsers(ctx context.Context, limit int) ([]*User, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var users []*User
+	for _, user := range s.users {
+		if user.SubscriptionTier == TierPro {
+			users = append(users, user)
+		}
+	}
+
+	// Sort by created_at descending
+	for i := 0; i < len(users)-1; i++ {
+		for j := 0; j < len(users)-i-1; j++ {
+			if users[j].CreatedAt < users[j+1].CreatedAt {
+				users[j], users[j+1] = users[j+1], users[j]
+			}
+		}
+	}
+
+	if len(users) > limit {
+		users = users[:limit]
+	}
+
+	return users, nil
+}
+
+func (s *MemoryService) ListRecentUsers(ctx context.Context, limit int) ([]*User, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var users []*User
+	for _, user := range s.users {
+		users = append(users, user)
+	}
+
+	// Sort by created_at descending
+	for i := 0; i < len(users)-1; i++ {
+		for j := 0; j < len(users)-i-1; j++ {
+			if users[j].CreatedAt < users[j+1].CreatedAt {
+				users[j], users[j+1] = users[j+1], users[j]
+			}
+		}
+	}
+
+	if len(users) > limit {
+		users = users[:limit]
+	}
+
+	return users, nil
+}

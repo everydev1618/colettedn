@@ -177,3 +177,139 @@ func (s *Service) GetByStripeCustomerID(ctx context.Context, customerID string) 
 
 	return &user, nil
 }
+
+// GetStats returns aggregate statistics about users
+func (s *Service) GetStats(ctx context.Context) (*UserStats, error) {
+	stats := &UserStats{}
+
+	// Scan all users to count totals
+	// Note: For large user bases, consider using a separate counter table
+	paginator := dynamodb.NewScanPaginator(s.db, &dynamodb.ScanInput{
+		TableName: aws.String(s.tableName),
+		ProjectionExpression: aws.String("subscription_tier"),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, item := range page.Items {
+			stats.TotalUsers++
+			if tier, ok := item["subscription_tier"]; ok {
+				if tierStr, ok := tier.(*types.AttributeValueMemberS); ok && tierStr.Value == string(TierPro) {
+					stats.ProUsers++
+				}
+			}
+		}
+	}
+
+	stats.FreeUsers = stats.TotalUsers - stats.ProUsers
+	// MRR = Pro users * $29/year / 12 months
+	stats.MRR = float64(stats.ProUsers) * 29.0 / 12.0
+
+	return stats, nil
+}
+
+// ListProUsers returns the most recent Pro subscribers
+func (s *Service) ListProUsers(ctx context.Context, limit int) ([]*User, error) {
+	result, err := s.db.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.tableName),
+		IndexName:              aws.String("tier-created-index"),
+		KeyConditionExpression: aws.String("subscription_tier = :tier"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":tier": &types.AttributeValueMemberS{Value: string(TierPro)},
+		},
+		ScanIndexForward: aws.Bool(false), // newest first
+		Limit:            aws.Int32(int32(limit)),
+	})
+	if err != nil {
+		// If index doesn't exist, fall back to scan
+		return s.listProUsersFallback(ctx, limit)
+	}
+
+	var users []*User
+	for _, item := range result.Items {
+		var user User
+		if err := attributevalue.UnmarshalMap(item, &user); err != nil {
+			continue
+		}
+		users = append(users, &user)
+	}
+
+	return users, nil
+}
+
+func (s *Service) listProUsersFallback(ctx context.Context, limit int) ([]*User, error) {
+	result, err := s.db.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(s.tableName),
+		FilterExpression: aws.String("subscription_tier = :tier"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":tier": &types.AttributeValueMemberS{Value: string(TierPro)},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var users []*User
+	for _, item := range result.Items {
+		var user User
+		if err := attributevalue.UnmarshalMap(item, &user); err != nil {
+			continue
+		}
+		users = append(users, &user)
+	}
+
+	// Sort by created_at descending and limit
+	// Simple bubble sort for small lists
+	for i := 0; i < len(users)-1; i++ {
+		for j := 0; j < len(users)-i-1; j++ {
+			if users[j].CreatedAt < users[j+1].CreatedAt {
+				users[j], users[j+1] = users[j+1], users[j]
+			}
+		}
+	}
+
+	if len(users) > limit {
+		users = users[:limit]
+	}
+
+	return users, nil
+}
+
+// ListRecentUsers returns the most recently created users
+func (s *Service) ListRecentUsers(ctx context.Context, limit int) ([]*User, error) {
+	// Use scan with limit - not ideal but works for small user bases
+	result, err := s.db.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(s.tableName),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var users []*User
+	for _, item := range result.Items {
+		var user User
+		if err := attributevalue.UnmarshalMap(item, &user); err != nil {
+			continue
+		}
+		users = append(users, &user)
+	}
+
+	// Sort by created_at descending
+	for i := 0; i < len(users)-1; i++ {
+		for j := 0; j < len(users)-i-1; j++ {
+			if users[j].CreatedAt < users[j+1].CreatedAt {
+				users[j], users[j+1] = users[j+1], users[j]
+			}
+		}
+	}
+
+	if len(users) > limit {
+		users = users[:limit]
+	}
+
+	return users, nil
+}

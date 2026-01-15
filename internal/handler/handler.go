@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/everydev1618/colettedn/internal/analytics"
 	"github.com/everydev1618/colettedn/internal/auth"
 	"github.com/everydev1618/colettedn/internal/cache"
 	"github.com/everydev1618/colettedn/internal/generator"
@@ -154,6 +155,9 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[RATE_LIMIT] ip=%s reason=%s daily_used=%d minute_used=%d isPro=%v",
 			ip, rl.Reason, rl.DailyUsed, rl.MinuteUsed, isPro)
 
+		// Track rate limit hit
+		analytics.Get().TrackRateLimitHit(r.Context(), ip, string(rl.Reason), isPro)
+
 		// Force refresh kill switch on rate limit violations (faster response to attacks)
 		if h.ks != nil {
 			h.ks.ForceRefresh()
@@ -197,6 +201,14 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		// Traditional (default)
 		tlds = []string{".com", ".co", ".net", ".org"}
 	}
+
+	// Track search
+	var userID, email string
+	if authUser != nil {
+		userID = authUser.UserID
+		email = authUser.Email
+	}
+	analytics.Get().TrackSearch(r.Context(), userID, email, ip, req.Description, req.TLDStyle)
 
 	// Multi-round generation with availability checking
 	availableByCategory := make(map[string][]DomainResult)
@@ -464,8 +476,31 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// TrackAffiliateClick tracks a click to Namecheap affiliate link
+func (h *Handler) TrackAffiliateClick(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Domain string `json:"domain"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		return
+	}
+
+	var userID string
+	if authUser := auth.GetUser(r.Context()); authUser != nil {
+		userID = authUser.UserID
+	}
+
+	analytics.Get().TrackAffiliateClick(r.Context(), userID, req.Domain)
+	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
 func (h *Handler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "frontend/index.html")
+}
+
+func (h *Handler) ServeWelcomePro(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "frontend/welcome-pro.html")
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
