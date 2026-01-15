@@ -30,7 +30,7 @@ Resources:
   ColetteDNFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: .
+      CodeUri: .aws-sam/build/ColetteDNFunction
       Handler: bootstrap
       Runtime: provided.al2023
       Architectures:
@@ -57,10 +57,6 @@ Resources:
           Properties:
             Path: /
             Method: ANY
-    Metadata:
-      BuildMethod: makefile
-      BuildTarget: build-lambda
-
   # DynamoDB table for caching (replaces SQLite)
   CacheTable:
     Type: AWS::DynamoDB::Table

@@ -39,10 +39,12 @@ jobs:
         run: |
           cd cmd/lambda
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o bootstrap .
-          cd ../..
 
-      - name: SAM Build
-        run: sam build --use-container=false
+      - name: Package for SAM
+        run: |
+          mkdir -p .aws-sam/build/ColetteDNFunction
+          cp cmd/lambda/bootstrap .aws-sam/build/ColetteDNFunction/
+          cp template.yaml .aws-sam/build/template.yaml
 
       - name: SAM Deploy
         run: |
@@ -52,6 +54,7 @@ jobs:
             --no-fail-on-empty-changeset \
             --resolve-s3 \
             --capabilities CAPABILITY_IAM \
+            --template-file .aws-sam/build/template.yaml \
             --parameter-overrides \
               AnthropicApiKey=${{ secrets.ANTHROPIC_API_KEY }} \
               NamecheapApiUser=${{ secrets.NAMECHEAP_API_USER }} \
@@ -65,4 +68,4 @@ jobs:
             --stack-name ${{ env.STACK_NAME }} \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
             --output text)
-          echo "Deployed to: $URL"
+          echo "🚀 Deployed to: $URL"
