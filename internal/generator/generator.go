@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type Generator struct {
@@ -17,7 +18,9 @@ type Generator struct {
 func New(apiKey string) *Generator {
 	return &Generator{
 		apiKey: apiKey,
-		client: &http.Client{},
+		client: &http.Client{
+			Timeout: 20 * time.Second, // Per-request timeout to stay under API Gateway's 29s limit
+		},
 	}
 }
 

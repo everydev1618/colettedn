@@ -98,7 +98,7 @@ type GenerateResponse struct {
 
 const (
 	minPerCategory = 4 // Keep searching until each category has at least this many
-	maxRounds      = 5 // Maximum generation rounds to avoid runaway API costs
+	maxRounds      = 2 // Reduced from 5 to stay under API Gateway's 29s timeout
 )
 
 type DomainResult struct {
