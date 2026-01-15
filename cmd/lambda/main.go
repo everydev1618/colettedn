@@ -34,7 +34,8 @@ func main() {
 			return
 		}
 		data, _ := fs.ReadFile(frontendRoot, "index.html")
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
 		w.Write(data)
 	})
 
