@@ -1,6 +1,6 @@
 // Lambda Function URL for generate endpoint (no timeout limit)
 // Falls back to relative path if not set
-const FUNCTION_URL = 'https://xjqst6uc5bjqdeajkpwhhcuqhq0bqbzq.lambda-url.us-east-1.on.aws/';
+const FUNCTION_URL = 'https://4tpzgbt5zo7kade7egg5uu75jy0inpuj.lambda-url.us-east-1.on.aws/';
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('generate-form');
