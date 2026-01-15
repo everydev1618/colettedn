@@ -1220,14 +1220,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const result = await checkComSite(domain);
                 if (result) {
-                    // Re-render to show the result
-                    renderResults(1);
+                    // Update in place - replace button with status
+                    const statusHtml = getComStatusHtml(result.status, result.domain);
+                    btn.outerHTML = statusHtml;
                 } else {
                     btn.disabled = false;
                     btn.textContent = 'check .com';
                 }
             });
         });
+    }
+
+    function getComStatusHtml(status, comDomain) {
+        if (status === 'active') {
+            return `<span class="com-status com-active" title="${comDomain} has an active website">⚠ .com active</span>`;
+        } else if (status === 'parked') {
+            return `<span class="com-status com-parked" title="${comDomain} is parked/for sale">◐ .com parked</span>`;
+        } else if (status === 'available') {
+            return `<span class="com-status com-available" title="${comDomain} is available!">✓ .com free</span>`;
+        } else {
+            return `<span class="com-status com-inactive" title="${comDomain} has no active site">✓ .com clear</span>`;
+        }
+    }
+
+    function isComInResults(baseName) {
+        // Check if {baseName}.com is already in the results
+        const comDomain = baseName + '.com';
+        for (const cat of Object.values(categories)) {
+            if (cat.some(d => d.name.toLowerCase() === comDomain)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function renderDomainCard(domain, index) {
@@ -1256,21 +1280,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let comCheckHtml = '';
         if (!isComDomain) {
             const baseName = extractBaseName(domain.name);
-            const comCheck = comSiteChecks.get(baseName);
-            if (comCheck) {
-                // Already checked - show result
-                if (comCheck.status === 'active') {
-                    comCheckHtml = `<span class="com-status com-active" title="${comCheck.domain} has an active website">⚠ .com active</span>`;
-                } else if (comCheck.status === 'parked') {
-                    comCheckHtml = `<span class="com-status com-parked" title="${comCheck.domain} is parked/for sale">◐ .com parked</span>`;
-                } else if (comCheck.status === 'available') {
-                    comCheckHtml = `<span class="com-status com-available" title="${comCheck.domain} is available!">✓ .com free</span>`;
-                } else {
-                    comCheckHtml = `<span class="com-status com-inactive" title="${comCheck.domain} has no active site">✓ .com clear</span>`;
-                }
+            // Don't show check .com if the .com is already in results (it's available)
+            if (isComInResults(baseName)) {
+                // .com is in results, no need to check
+                comCheckHtml = '';
             } else {
-                // Not checked yet - show link
-                comCheckHtml = `<button class="check-com-btn" data-domain="${escapeHtml(domain.name)}" title="Check if ${baseName}.com has a website">check .com</button>`;
+                const comCheck = comSiteChecks.get(baseName);
+                if (comCheck) {
+                    // Already checked - show result
+                    comCheckHtml = getComStatusHtml(comCheck.status, comCheck.domain);
+                } else {
+                    // Not checked yet - show link
+                    comCheckHtml = `<button class="check-com-btn" data-domain="${escapeHtml(domain.name)}" title="Check if ${baseName}.com has a website">check .com</button>`;
+                }
             }
         }
 
