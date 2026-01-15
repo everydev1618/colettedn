@@ -194,6 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAuthUI();
         // POST to logout endpoint (fire and forget)
         fetch('/api/auth/logout', { method: 'POST', headers: getAuthHeaders() }).catch(() => {});
+        // Go back to landing page
+        appLayout.hidden = true;
+        heroState.hidden = false;
     }
 
     function getAuthHeaders() {
