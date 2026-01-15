@@ -29,7 +29,41 @@
         </div>
     </div>
 
-    <div class="app-layout">
+    <!-- Hero State (initial landing page) -->
+    <div id="hero-state" class="hero-state">
+        <div class="hero-content">
+            <div class="hero-logo">
+                <span class="hero-mark">✦</span>
+                <h1 class="hero-title">Colette</h1>
+                <span class="hero-suffix">DN</span>
+            </div>
+            <p class="hero-tagline">Domain Name Atelier</p>
+
+            <form id="hero-form" class="hero-form">
+                <textarea
+                    id="hero-description"
+                    class="hero-input"
+                    rows="2"
+                    placeholder="Describe what you're building..."
+                    required
+                ></textarea>
+
+                <div class="hero-options">
+                    <button type="button" class="hero-tld-toggle active" data-value="traditional">.com .co .net</button>
+                    <button type="button" class="hero-tld-toggle" data-value="creative">.io .ai .app .dev</button>
+                </div>
+
+                <button type="submit" class="hero-submit">
+                    <span class="hero-btn-text">Generate Names</span>
+                    <span class="hero-btn-loading" hidden>
+                        <span class="spinner"></span>
+                    </span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="app-layout" hidden>
         <!-- Top Search Bar -->
         <header class="top-bar">
             <div class="logo">

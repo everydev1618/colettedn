@@ -13,6 +13,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const maintenanceOverlay = document.getElementById('maintenance-overlay');
     const maintenanceCountdown = document.getElementById('maintenance-countdown');
 
+    // Hero state elements
+    const heroState = document.getElementById('hero-state');
+    const heroForm = document.getElementById('hero-form');
+    const heroDescription = document.getElementById('hero-description');
+    const heroSubmitBtn = heroForm.querySelector('.hero-submit');
+    const heroBtnText = heroSubmitBtn.querySelector('.hero-btn-text');
+    const heroBtnLoading = heroSubmitBtn.querySelector('.hero-btn-loading');
+    const appLayout = document.querySelector('.app-layout');
+
     // Maintenance mode handling
     let maintenanceTimer = null;
 
@@ -46,6 +55,44 @@ document.addEventListener('DOMContentLoaded', () => {
             maintenanceTimer = null;
         }
     }
+
+    // Track current TLD style for hero form
+    let heroTldStyle = 'traditional';
+
+    // Hero TLD toggle handlers
+    document.querySelectorAll('.hero-tld-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.hero-tld-toggle').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            heroTldStyle = btn.dataset.value;
+        });
+    });
+
+    // Hero form submission - transition to results view
+    heroForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const description = heroDescription.value.trim();
+        if (!description) {
+            shakeElement(heroDescription);
+            return;
+        }
+
+        // Sync values to main form
+        document.getElementById('description').value = description;
+        tldStyleInput.value = heroTldStyle;
+        // Sync the TLD toggle UI in the header
+        document.querySelectorAll('.tld-toggle').forEach(b => {
+            b.classList.toggle('active', b.dataset.value === heroTldStyle);
+        });
+
+        // Transition to app layout
+        heroState.hidden = true;
+        appLayout.hidden = false;
+
+        // Trigger the main form submit
+        form.dispatchEvent(new Event('submit'));
+    });
 
     // TLD toggle handlers
     document.querySelectorAll('.tld-toggle').forEach(btn => {
