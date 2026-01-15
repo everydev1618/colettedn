@@ -498,8 +498,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     ownedModal.hidden = true;
                     pendingOwnedDomain = null;
-                    // Re-render results to show owned badge
-                    if (Object.keys(categories).length > 0) {
+                    // Re-render to show owned badge
+                    if (!favoritesView.hidden) {
+                        renderFavoritesView();
+                    } else if (Object.keys(categories).length > 0) {
                         renderResults(1);
                     }
                 } else {
@@ -523,13 +525,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (response.ok) {
                 userOwnedDomains.delete(domain.toLowerCase());
-                // Re-render results
-                if (Object.keys(categories).length > 0) {
-                    renderResults(1);
-                }
+                return true;
             }
+            return false;
         } catch (err) {
             console.error('Failed to remove owned domain:', err);
+            return false;
         }
     }
 
@@ -774,17 +775,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const favArray = Array.from(userFavorites);
-        favoritesList.innerHTML = favArray.map((domain, i) => `
-            <div class="domain-card" style="animation-delay: ${i * 0.03}s">
-                <span class="domain-name">${escapeHtml(domain)}</span>
-                <div class="domain-row">
-                    <button class="favorite-btn favorited" data-domain="${escapeHtml(domain)}" title="Remove from favorites">
-                        ♥
-                    </button>
-                    <a href="${getAffiliateUrl(domain)}" target="_blank" rel="noopener" class="domain-link" data-domain="${escapeHtml(domain)}">Register &rarr;</a>
+        favoritesList.innerHTML = favArray.map((domain, i) => {
+            const ownedInfo = userOwnedDomains.get(domain.toLowerCase());
+            const isOwned = !!ownedInfo;
+            const ownedBadgeHtml = isOwned
+                ? `<span class="owned-badge" title="${ownedInfo.acquisitionType === 'found_via_colette' ? 'Found on Colette' : 'Previously owned'}">✓ Owned</span>`
+                : '';
+            const actionHtml = isOwned
+                ? `<button class="unown-btn" data-domain="${escapeHtml(domain)}" title="Remove ownership">✕</button>`
+                : `<a href="${getAffiliateUrl(domain)}" target="_blank" rel="noopener" class="domain-link" data-domain="${escapeHtml(domain)}">Register &rarr;</a>`;
+
+            return `
+                <div class="domain-card${isOwned ? ' owned' : ''}" style="animation-delay: ${i * 0.03}s">
+                    <div class="domain-name-row">
+                        <span class="domain-name">${escapeHtml(domain)}</span>
+                        ${ownedBadgeHtml}
+                    </div>
+                    <div class="domain-row">
+                        <button class="favorite-btn favorited" data-domain="${escapeHtml(domain)}" title="Remove from favorites">
+                            ♥
+                        </button>
+                        <button class="own-btn${isOwned ? ' hidden' : ''}" data-domain="${escapeHtml(domain)}" title="I own this domain">
+                            ✓
+                        </button>
+                        ${actionHtml}
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         // Add remove handlers
         favoritesList.querySelectorAll('.favorite-btn').forEach(btn => {
@@ -805,6 +823,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: JSON.stringify({ domain })
                     }).catch(() => {});
                 }
+            });
+        });
+
+        // Add own button handlers
+        favoritesList.querySelectorAll('.own-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                openOwnedModal(btn.dataset.domain);
+            });
+        });
+
+        // Add unown button handlers
+        favoritesList.querySelectorAll('.unown-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await removeOwnedDomain(btn.dataset.domain);
+                await renderFavoritesView();
             });
         });
     }
@@ -1101,9 +1136,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add unown button handlers
         resultsEl.querySelectorAll('.unown-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 e.preventDefault();
-                removeOwnedDomain(btn.dataset.domain);
+                await removeOwnedDomain(btn.dataset.domain);
+                renderResults(1);
             });
         });
     }
