@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sentEmail = document.getElementById('sent-email');
     const loginError = document.getElementById('login-error');
     const loginClose = document.getElementById('login-close');
+    const loginModalText = loginModal.querySelector('.modal-text');
 
     // User menu elements
     const signInBtn = document.getElementById('sign-in-btn');
@@ -82,6 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const manageBtn = document.getElementById('manage-btn');
     const heroUpgradeBtn = document.getElementById('hero-upgrade-btn');
     const heroManageBtn = document.getElementById('hero-manage-btn');
+
+    // Admin buttons
+    const adminBtn = document.getElementById('admin-btn');
+    const heroAdminBtn = document.getElementById('hero-admin-btn');
+    const ADMIN_EMAIL = 'etdebruin@gmail.com';
 
     // Maintenance mode handling
     let maintenanceTimer = null;
@@ -167,6 +173,11 @@ document.addEventListener('DOMContentLoaded', () => {
             manageBtn.hidden = !isPro;
             heroUpgradeBtn.hidden = isPro;
             heroManageBtn.hidden = !isPro;
+
+            // Show admin button only for admin email
+            const isAdmin = currentUser.email === ADMIN_EMAIL;
+            adminBtn.hidden = !isAdmin;
+            heroAdminBtn.hidden = !isAdmin;
         } else {
             // Header (app layout)
             signInBtn.hidden = false;
@@ -206,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loginForm.hidden = false;
         loginSent.hidden = true;
         loginError.hidden = true;
+        loginModalText.hidden = false;
         loginEmail.value = '';
         loginEmail.focus();
     }
@@ -278,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok && data.success) {
                 loginForm.hidden = true;
+                loginModalText.hidden = true;
                 loginSent.hidden = false;
                 sentEmail.textContent = email;
             } else {
@@ -382,6 +395,19 @@ document.addEventListener('DOMContentLoaded', () => {
         heroDropdownMenu.hidden = true;
         heroUserDropdown.classList.remove('open');
         openManageSubscription();
+    });
+
+    // Admin button handlers
+    adminBtn.addEventListener('click', () => {
+        dropdownMenu.hidden = true;
+        userDropdown.classList.remove('open');
+        window.location.href = '/admin';
+    });
+
+    heroAdminBtn.addEventListener('click', () => {
+        heroDropdownMenu.hidden = true;
+        heroUserDropdown.classList.remove('open');
+        window.location.href = '/admin';
     });
 
     // User dropdown handlers
