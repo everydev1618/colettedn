@@ -59,7 +59,10 @@ jobs:
               AnthropicApiKey=${{ secrets.ANTHROPIC_API_KEY }} \
               NamecheapApiUser=${{ secrets.NAMECHEAP_API_USER }} \
               NamecheapApiKey=${{ secrets.NAMECHEAP_API_KEY }} \
-              NamecheapUsername=${{ secrets.NAMECHEAP_USERNAME }}
+              NamecheapUsername=${{ secrets.NAMECHEAP_USERNAME }} \
+              StripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }} \
+              StripePriceId=${{ secrets.STRIPE_PRICE_ID }} \
+              StripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
 
       - name: Get deployment info
         run: |
