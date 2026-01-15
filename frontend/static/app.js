@@ -652,7 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="favorite-btn favorited" data-domain="${escapeHtml(domain)}" title="Remove from favorites">
                         ♥
                     </button>
-                    <a href="${getAffiliateUrl(domain)}" target="_blank" rel="noopener" class="domain-link">Register &rarr;</a>
+                    <a href="${getAffiliateUrl(domain)}" target="_blank" rel="noopener" class="domain-link" data-domain="${escapeHtml(domain)}">Register &rarr;</a>
                 </div>
             </div>
         `).join('');
@@ -662,6 +662,20 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', async () => {
                 await toggleFavorite(btn.dataset.domain);
                 await renderFavoritesView();
+            });
+        });
+
+        // Track affiliate link clicks
+        favoritesList.querySelectorAll('.domain-link').forEach(link => {
+            link.addEventListener('click', () => {
+                const domain = link.dataset.domain;
+                if (domain) {
+                    fetch('/api/track/affiliate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ domain })
+                    }).catch(() => {});
+                }
             });
         });
     }
@@ -936,6 +950,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.textContent = userFavorites.has(domain) ? '♥' : '♡';
             });
         });
+
+        // Track affiliate link clicks
+        resultsEl.querySelectorAll('.domain-link').forEach(link => {
+            link.addEventListener('click', () => {
+                const domain = link.dataset.domain;
+                if (domain) {
+                    fetch('/api/track/affiliate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ domain })
+                    }).catch(() => {}); // Fire and forget
+                }
+            });
+        });
     }
 
     function renderDomainCard(domain, index) {
@@ -963,7 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const heartIcon = isFavorited ? '♥' : '♡';
         const heartClass = isFavorited ? 'favorited' : '';
 
-        const linkHtml = `<a href="${getAffiliateUrl(domain.name)}" target="_blank" rel="noopener" class="domain-link">Register &rarr;</a>`;
+        const linkHtml = `<a href="${getAffiliateUrl(domain.name)}" target="_blank" rel="noopener" class="domain-link" data-domain="${escapeHtml(domain.name)}">Register &rarr;</a>`;
 
         return `
             <div class="domain-card" style="animation-delay: ${index * 0.03}s">
