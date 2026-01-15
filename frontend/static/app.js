@@ -1,3 +1,7 @@
+// Lambda Function URL for generate endpoint (no timeout limit)
+// Falls back to relative path if not set
+const FUNCTION_URL = ''; // Will be set after first deploy
+
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('generate-form');
     const submitBtn = document.getElementById('submit-btn');
@@ -95,7 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsEl.hidden = false;
 
         try {
-            const response = await fetch('/api/generate', {
+            // Use Function URL if configured (no timeout), otherwise fall back to API Gateway
+            const generateUrl = FUNCTION_URL ? `${FUNCTION_URL}api/generate` : '/api/generate';
+            const response = await fetch(generateUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ description, tldStyle }),

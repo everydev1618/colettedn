@@ -48,10 +48,10 @@ func New() *Handler {
 		DailyLimit: dailyLimit,
 	})
 
-	// Kill switch temporarily disabled - re-enable after IAM propagates
-	// if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
-	// 	h.ks = killswitch.New()
-	// }
+	// Initialize kill switch (only in Lambda environment)
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		h.ks = killswitch.New()
+	}
 
 	// Initialize Namecheap client if configured
 	if os.Getenv("NAMECHEAP_API_KEY") != "" {

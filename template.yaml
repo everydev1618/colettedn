@@ -172,6 +172,7 @@ Resources:
       Runtime: provided.al2023
       Architectures:
         - x86_64
+      Timeout: 120  # 2 minutes for Function URL calls
       VpcConfig:
         SecurityGroupIds:
           - !Ref LambdaSecurityGroup
@@ -189,6 +190,19 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref CacheTable
         - VPCAccessPolicy: {}
+        - SSMParameterReadPolicy:
+            ParameterName: colettedn/*
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowOrigins:
+            - "https://colettedn.com"
+            - "http://localhost:8080"
+          AllowMethods:
+            - POST
+            - OPTIONS
+          AllowHeaders:
+            - Content-Type
       Events:
         Api:
           Type: HttpApi
@@ -246,6 +260,9 @@ Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  FunctionUrl:
+    Description: Lambda Function URL (no timeout limit)
+    Value: !GetAtt ColetteDNFunctionUrl.FunctionUrl
   CustomDomainUrl:
     Description: Custom domain URL
     Value: !Sub "https://${DomainName}/"
