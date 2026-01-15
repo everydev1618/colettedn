@@ -215,6 +215,8 @@ Resources:
             TableName: !Ref HistoryTable
         - DynamoDBCrudPolicy:
             TableName: !Ref AnalyticsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OwnedTable
         - VPCAccessPolicy: {}
         - SSMParameterReadPolicy:
             ParameterName: colettedn/*
