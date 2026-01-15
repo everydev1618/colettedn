@@ -6,6 +6,7 @@ const FUNCTION_URL = 'https://4tpzgbt5zo7kade7egg5uu75jy0inpuj.lambda-url.us-eas
 let authToken = localStorage.getItem('authToken');
 let currentUser = null;
 let userFavorites = new Set();
+let userOwnedDomains = new Map(); // domain -> { acquisitionType, createdAt }
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('generate-form');
@@ -60,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const heroUserBtn = document.getElementById('hero-user-btn');
     const heroUserEmail = document.getElementById('hero-user-email');
     const heroDropdownMenu = document.getElementById('hero-dropdown-menu');
+    const heroSearchConsoleBtn = document.getElementById('hero-search-console-btn');
     const heroFavoritesBtn = document.getElementById('hero-favorites-btn');
     const heroHistoryBtn = document.getElementById('hero-history-btn');
     const heroLogoutBtn = document.getElementById('hero-logout-btn');
@@ -88,6 +90,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminBtn = document.getElementById('admin-btn');
     const heroAdminBtn = document.getElementById('hero-admin-btn');
     const ADMIN_EMAIL = 'etdebruin@gmail.com';
+
+    // Owned modal elements
+    const ownedModal = document.getElementById('owned-modal');
+    const ownedClose = document.getElementById('owned-close');
+    const ownedDomainName = document.getElementById('owned-domain-name');
+    const ownedError = document.getElementById('owned-error');
+    let pendingOwnedDomain = null;
 
     // Maintenance mode handling
     let maintenanceTimer = null;
@@ -120,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentUser = data.user;
                 updateAuthUI();
                 await fetchFavorites();
+                await fetchOwnedDomains();
 
                 // Always go to app layout when logged in
                 heroState.hidden = true;
@@ -147,6 +157,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function fetchOwnedDomains() {
+        if (!authToken) return;
+        try {
+            const response = await apiFetch('/api/owned');
+            if (response.ok) {
+                const data = await response.json();
+                userOwnedDomains = new Map();
+                for (const d of data.owned) {
+                    userOwnedDomains.set(d.domain.toLowerCase(), {
+                        acquisitionType: d.acquisitionType,
+                        createdAt: d.createdAt
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch owned domains:', err);
+        }
+    }
+
     function updateAuthUI() {
         const isPro = currentUser && currentUser.subscriptionTier === 'pro';
 
@@ -154,17 +183,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Header (app layout)
             signInBtn.hidden = true;
             userDropdown.hidden = false;
-            userEmailEl.textContent = currentUser.email;
             userEmailEl.innerHTML = isPro
-                ? `${escapeHtml(currentUser.email)} <span class="pro-badge">Pro</span>`
-                : escapeHtml(currentUser.email);
+                ? `<span class="user-email-text">${escapeHtml(currentUser.email)}</span><span class="pro-badge">Pro</span>`
+                : `<span class="user-email-text">${escapeHtml(currentUser.email)}</span>`;
 
             // Hero (landing page)
             heroSignInBtn.hidden = true;
             heroUserDropdown.hidden = false;
             heroUserEmail.innerHTML = isPro
-                ? `${escapeHtml(currentUser.email)} <span class="pro-badge">Pro</span>`
-                : escapeHtml(currentUser.email);
+                ? `<span class="user-email-text">${escapeHtml(currentUser.email)}</span><span class="pro-badge">Pro</span>`
+                : `<span class="user-email-text">${escapeHtml(currentUser.email)}</span>`;
 
             // Show upgrade or manage button based on tier
             upgradeMenuBtn.hidden = isPro;
@@ -190,7 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
         authToken = null;
         currentUser = null;
         userFavorites.clear();
+        userOwnedDomains.clear();
         localStorage.removeItem('authToken');
+        document.documentElement.classList.remove('has-token');
         updateAuthUI();
         // POST to logout endpoint (fire and forget)
         fetch('/api/auth/logout', { method: 'POST', headers: getAuthHeaders() }).catch(() => {});
@@ -231,6 +261,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const isOpen = !heroDropdownMenu.hidden;
         heroDropdownMenu.hidden = isOpen;
         heroUserDropdown.classList.toggle('open', !isOpen);
+    });
+
+    heroSearchConsoleBtn.addEventListener('click', () => {
+        heroDropdownMenu.hidden = true;
+        heroUserDropdown.classList.remove('open');
+        // Transition to app layout (search console)
+        heroState.hidden = true;
+        appLayout.hidden = false;
     });
 
     heroFavoritesBtn.addEventListener('click', () => {
@@ -410,6 +448,89 @@ document.addEventListener('DOMContentLoaded', () => {
         heroUserDropdown.classList.remove('open');
         window.location.href = '/admin';
     });
+
+    // Owned domain modal handlers
+    function openOwnedModal(domain) {
+        if (!authToken) {
+            openLoginModal();
+            return;
+        }
+        pendingOwnedDomain = domain;
+        ownedDomainName.textContent = domain;
+        ownedError.hidden = true;
+        ownedModal.hidden = false;
+    }
+
+    ownedClose.addEventListener('click', () => {
+        ownedModal.hidden = true;
+        pendingOwnedDomain = null;
+    });
+
+    ownedModal.addEventListener('click', (e) => {
+        if (e.target === ownedModal) {
+            ownedModal.hidden = true;
+            pendingOwnedDomain = null;
+        }
+    });
+
+    // Owned option click handlers
+    ownedModal.querySelectorAll('.owned-option').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!pendingOwnedDomain) return;
+
+            const acquisitionType = btn.dataset.type;
+            btn.disabled = true;
+
+            try {
+                const response = await apiFetch('/api/owned', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        domain: pendingOwnedDomain,
+                        acquisitionType: acquisitionType
+                    })
+                });
+
+                if (response.ok) {
+                    userOwnedDomains.set(pendingOwnedDomain.toLowerCase(), {
+                        acquisitionType: acquisitionType,
+                        createdAt: Date.now() / 1000
+                    });
+                    ownedModal.hidden = true;
+                    pendingOwnedDomain = null;
+                    // Re-render results to show owned badge
+                    if (Object.keys(categories).length > 0) {
+                        renderResults(1);
+                    }
+                } else {
+                    const data = await response.json();
+                    ownedError.textContent = data.error || 'Failed to mark domain as owned';
+                    ownedError.hidden = false;
+                }
+            } catch (err) {
+                ownedError.textContent = 'Failed to mark domain as owned. Please try again.';
+                ownedError.hidden = false;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    });
+
+    async function removeOwnedDomain(domain) {
+        try {
+            const response = await apiFetch(`/api/owned/${encodeURIComponent(domain)}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                userOwnedDomains.delete(domain.toLowerCase());
+                // Re-render results
+                if (Object.keys(categories).length > 0) {
+                    renderResults(1);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to remove owned domain:', err);
+        }
+    }
 
     // User dropdown handlers
     userBtn.addEventListener('click', () => {
@@ -745,12 +866,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Track current TLD style for hero form
     let heroTldStyle = 'traditional';
 
-    // Logo click - return to landing page
+    // Logo click - stay on search console
     document.getElementById('logo-home').addEventListener('click', (e) => {
         e.preventDefault();
-        appLayout.hidden = true;
-        heroState.hidden = false;
-        favoritesView.hidden = true;
     });
 
     // Hero TLD toggle handlers
@@ -964,6 +1082,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // Add own button handlers
+        resultsEl.querySelectorAll('.own-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                openOwnedModal(btn.dataset.domain);
+            });
+        });
+
+        // Add unown button handlers
+        resultsEl.querySelectorAll('.unown-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                removeOwnedDomain(btn.dataset.domain);
+            });
+        });
     }
 
     function renderDomainCard(domain, index) {
@@ -991,18 +1125,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const heartIcon = isFavorited ? '♥' : '♡';
         const heartClass = isFavorited ? 'favorited' : '';
 
-        const linkHtml = `<a href="${getAffiliateUrl(domain.name)}" target="_blank" rel="noopener" class="domain-link" data-domain="${escapeHtml(domain.name)}">Register &rarr;</a>`;
+        // Check if domain is owned
+        const ownedInfo = userOwnedDomains.get(domain.name.toLowerCase());
+        const isOwned = !!ownedInfo;
+        const ownedBadgeHtml = isOwned
+            ? `<span class="owned-badge" title="${ownedInfo.acquisitionType === 'found_via_colette' ? 'Found on Colette' : 'Previously owned'}">✓ Owned</span>`
+            : '';
+
+        // Show "I own this" button or "Register" link based on ownership
+        const actionHtml = isOwned
+            ? `<button class="unown-btn" data-domain="${escapeHtml(domain.name)}" title="Remove ownership">✕</button>`
+            : `<a href="${getAffiliateUrl(domain.name)}" target="_blank" rel="noopener" class="domain-link" data-domain="${escapeHtml(domain.name)}">Register &rarr;</a>`;
 
         return `
-            <div class="domain-card" style="animation-delay: ${index * 0.03}s">
-                <span class="domain-name">${escapeHtml(domain.name)}</span>
+            <div class="domain-card${isOwned ? ' owned' : ''}" style="animation-delay: ${index * 0.03}s">
+                <div class="domain-name-row">
+                    <span class="domain-name">${escapeHtml(domain.name)}</span>
+                    ${ownedBadgeHtml}
+                </div>
                 <div class="domain-row">
                     <div class="domain-meta">${metaHtml}</div>
                     <div class="domain-actions">
                         <button class="favorite-btn ${heartClass}" data-domain="${escapeHtml(domain.name)}" title="${isFavorited ? 'Remove from favorites' : 'Add to favorites'}">
                             ${heartIcon}
                         </button>
-                        ${linkHtml}
+                        <button class="own-btn${isOwned ? ' hidden' : ''}" data-domain="${escapeHtml(domain.name)}" title="I own this domain">
+                            ✓
+                        </button>
+                        ${actionHtml}
                     </div>
                 </div>
             </div>

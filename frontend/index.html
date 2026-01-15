@@ -8,6 +8,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        // Prevent flash of landing page for logged-in users
+        if (localStorage.getItem('authToken')) {
+            document.documentElement.classList.add('has-token');
+        }
+    </script>
+    <style>
+        /* Hide hero immediately if user has token, show app layout instead */
+        .has-token #hero-state { display: none !important; }
+        .has-token .app-layout { display: flex !important; }
+    </style>
 </head>
 <body>
     <!-- Login Modal -->
@@ -84,6 +95,31 @@
         </div>
     </div>
 
+    <!-- Owned Domain Modal -->
+    <div id="owned-modal" class="modal-overlay" hidden>
+        <div class="modal-content owned-modal">
+            <button class="modal-close" id="owned-close">&times;</button>
+            <div class="modal-icon">✓</div>
+            <h2 class="modal-title">I Own This Domain</h2>
+            <p class="modal-text">How did you acquire <strong id="owned-domain-name"></strong>?</p>
+
+            <div class="owned-options">
+                <button type="button" class="owned-option" data-type="found_via_colette">
+                    <span class="owned-option-icon">✦</span>
+                    <span class="owned-option-text">Found it on Colette</span>
+                    <span class="owned-option-desc">I discovered and registered this domain using ColetteDN</span>
+                </button>
+                <button type="button" class="owned-option" data-type="previously_owned">
+                    <span class="owned-option-icon">←</span>
+                    <span class="owned-option-text">Already owned it</span>
+                    <span class="owned-option-desc">I owned this domain before using ColetteDN</span>
+                </button>
+            </div>
+
+            <p id="owned-error" class="login-error" hidden></p>
+        </div>
+    </div>
+
     <!-- Maintenance Overlay -->
     <div id="maintenance-overlay" class="maintenance-overlay" hidden>
         <div class="maintenance-content">
@@ -113,6 +149,9 @@
                     <span class="dropdown-arrow">▼</span>
                 </button>
                 <div id="hero-dropdown-menu" class="hero-dropdown-menu" hidden>
+                    <button id="hero-search-console-btn" class="dropdown-item">
+                        <span class="dropdown-icon">⌕</span> Search Console
+                    </button>
                     <button id="hero-favorites-btn" class="dropdown-item">
                         <span class="dropdown-icon">♥</span> Favorites
                     </button>
@@ -147,7 +186,7 @@
                     id="hero-description"
                     class="hero-input"
                     rows="2"
-                    placeholder="Describe what you're building..."
+                    placeholder="Describe the domain you're looking for..."
                     required
                 ></textarea>
 
@@ -180,7 +219,7 @@
                     id="description"
                     class="search-input"
                     rows="1"
-                    placeholder="Describe what you're building..."
+                    placeholder="Describe the domain you're looking for..."
                     required
                 ></textarea>
 

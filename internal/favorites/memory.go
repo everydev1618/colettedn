@@ -103,3 +103,41 @@ func (s *MemoryService) GetFavoritesMap(ctx context.Context, userID string, doma
 
 	return favMap, nil
 }
+
+func (s *MemoryService) GetTotalCount(ctx context.Context) (int64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var count int64
+	for _, favs := range s.favorites {
+		count += int64(len(favs))
+	}
+	return count, nil
+}
+
+func (s *MemoryService) ListRecent(ctx context.Context, limit int) ([]Favorite, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Collect all favorites
+	var all []Favorite
+	for _, favs := range s.favorites {
+		all = append(all, favs...)
+	}
+
+	// Sort by created_at descending
+	for i := 0; i < len(all)-1; i++ {
+		for j := i + 1; j < len(all); j++ {
+			if all[j].CreatedAt > all[i].CreatedAt {
+				all[i], all[j] = all[j], all[i]
+			}
+		}
+	}
+
+	// Return up to limit
+	if len(all) > limit {
+		all = all[:limit]
+	}
+
+	return all, nil
+}

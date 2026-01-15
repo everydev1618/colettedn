@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/everydev1618/colettedn/internal/favorites"
 	"github.com/everydev1618/colettedn/internal/handler"
 	"github.com/everydev1618/colettedn/internal/user"
 	"github.com/joho/godotenv"
@@ -91,7 +92,11 @@ func main() {
 		}
 
 		// Admin routes (require admin email)
-		adminHandler := handler.NewAdminHandler(userService)
+		var favService favorites.FavoritesService
+		if favHandler != nil {
+			favService = favHandler.GetService()
+		}
+		adminHandler := handler.NewAdminHandler(userService, favService)
 		mux.Handle("GET /admin", handler.RequireAdmin(authMiddleware, http.HandlerFunc(adminHandler.Dashboard)))
 		mux.Handle("GET /api/admin/stats", handler.RequireAdmin(authMiddleware, http.HandlerFunc(adminHandler.Stats)))
 	}

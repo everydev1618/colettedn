@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
+	"github.com/everydev1618/colettedn/internal/favorites"
 	"github.com/everydev1618/colettedn/internal/handler"
 	"github.com/everydev1618/colettedn/internal/user"
 )
@@ -57,6 +58,12 @@ func init() {
 		log.Printf("[WARN] Failed to initialize history handler: %v", err)
 	}
 
+	// Initialize owned domains handler
+	ownedHandler, err := handler.NewOwnedHandler()
+	if err != nil {
+		log.Printf("[WARN] Failed to initialize owned handler: %v", err)
+	}
+
 	// Initialize billing handler
 	billingHandler, err := handler.NewBillingHandler(userService)
 	if err != nil {
@@ -94,6 +101,12 @@ func init() {
 			mux.Handle("DELETE /api/history/", authMiddleware.RequireAuth(http.HandlerFunc(histHandler.Delete)))
 		}
 
+		if ownedHandler != nil {
+			mux.Handle("GET /api/owned", authMiddleware.RequireAuth(http.HandlerFunc(ownedHandler.List)))
+			mux.Handle("POST /api/owned", authMiddleware.RequireAuth(http.HandlerFunc(ownedHandler.Add)))
+			mux.Handle("DELETE /api/owned/", authMiddleware.RequireAuth(http.HandlerFunc(ownedHandler.Remove)))
+		}
+
 		// Billing routes (require auth except webhook)
 		if billingHandler != nil {
 			mux.Handle("POST /api/billing/checkout", authMiddleware.RequireAuth(http.HandlerFunc(billingHandler.Checkout)))
@@ -102,7 +115,11 @@ func init() {
 		}
 
 		// Admin routes (require admin email)
-		adminHandler := handler.NewAdminHandler(userService)
+		var favService favorites.FavoritesService
+		if favHandler != nil {
+			favService = favHandler.GetService()
+		}
+		adminHandler := handler.NewAdminHandler(userService, favService)
 		mux.Handle("GET /api/admin/stats", handler.RequireAdmin(authMiddleware, http.HandlerFunc(adminHandler.Stats)))
 	}
 

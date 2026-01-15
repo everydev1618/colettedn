@@ -215,6 +215,7 @@ func (s *Service) GetRecentEvents(ctx context.Context, eventType string, limit i
 }
 
 // GetDailyTrend gets daily counts for a metric over the past N days
+// Returns all days in the range, with 0 for days without data
 func (s *Service) GetDailyTrend(ctx context.Context, metric string, days int) ([]DailyCounter, error) {
 	now := time.Now()
 	endDate := now.Format("2006-01-02")
@@ -233,13 +234,24 @@ func (s *Service) GetDailyTrend(ctx context.Context, metric string, days int) ([
 		return nil, err
 	}
 
-	var counters []DailyCounter
+	// Build a map of date -> count from query results
+	countsByDate := make(map[string]int64)
 	for _, item := range result.Items {
 		var counter DailyCounter
 		if err := attributevalue.UnmarshalMap(item, &counter); err != nil {
 			continue
 		}
-		counters = append(counters, counter)
+		countsByDate[counter.Date] = counter.Count
+	}
+
+	// Return all days in range, with 0 for missing days
+	var counters []DailyCounter
+	for i := days - 1; i >= 0; i-- {
+		date := now.AddDate(0, 0, -i).Format("2006-01-02")
+		counters = append(counters, DailyCounter{
+			Date:  date,
+			Count: countsByDate[date], // 0 if not in map
+		})
 	}
 	return counters, nil
 }

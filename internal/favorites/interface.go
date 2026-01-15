@@ -9,6 +9,8 @@ type FavoritesService interface {
 	List(ctx context.Context, userID string) ([]Favorite, error)
 	IsFavorite(ctx context.Context, userID, domain string) (bool, error)
 	GetFavoritesMap(ctx context.Context, userID string, domains []string) (map[string]bool, error)
+	GetTotalCount(ctx context.Context) (int64, error)
+	ListRecent(ctx context.Context, limit int) ([]Favorite, error)
 }
 
 // Ensure implementations satisfy the interface

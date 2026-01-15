@@ -106,14 +106,27 @@ func (h *BillingHandler) Portal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if fullUser.StripeCustomerID == "" {
-		writeJSON(w, http.StatusBadRequest, PortalResponse{Error: "No subscription found"})
-		return
+	stripeCustomerID := fullUser.StripeCustomerID
+	if stripeCustomerID == "" {
+		// Try to find the customer by email in Stripe
+		customer, err := h.stripeClient.GetCustomerByEmail(u.Email)
+		if err != nil {
+			log.Printf("[BILLING_ERROR] Failed to lookup customer by email: %v", err)
+			writeJSON(w, http.StatusInternalServerError, PortalResponse{Error: "Failed to lookup subscription"})
+			return
+		}
+		if customer == nil {
+			writeJSON(w, http.StatusBadRequest, PortalResponse{Error: "No subscription found"})
+			return
+		}
+		stripeCustomerID = customer.ID
+		// Update the user record with the customer ID for future lookups
+		_ = h.userService.UpdateSubscription(r.Context(), u.UserID, stripeCustomerID, fullUser.SubscriptionTier, fullUser.SubscriptionExpiry)
 	}
 
 	returnURL := h.appURL
 
-	session, err := h.stripeClient.CreatePortalSession(fullUser.StripeCustomerID, returnURL)
+	session, err := h.stripeClient.CreatePortalSession(stripeCustomerID, returnURL)
 	if err != nil {
 		log.Printf("[BILLING_ERROR] Failed to create portal session: %v", err)
 		writeJSON(w, http.StatusInternalServerError, PortalResponse{Error: "Failed to create portal session"})

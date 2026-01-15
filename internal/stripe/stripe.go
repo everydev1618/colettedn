@@ -217,3 +217,44 @@ func (c *Client) GetCheckoutSessionFromEvent(event *WebhookEvent) (*CheckoutSess
 	}
 	return &session, nil
 }
+
+type Customer struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+}
+
+type CustomerList struct {
+	Data []Customer `json:"data"`
+}
+
+// GetCustomerByEmail looks up a Stripe customer by email address
+func (c *Client) GetCustomerByEmail(email string) (*Customer, error) {
+	req, err := http.NewRequest("GET", "https://api.stripe.com/v1/customers?email="+url.QueryEscape(email)+"&limit=1", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.SetBasicAuth(c.secretKey, "")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("stripe error: %s", string(body))
+	}
+
+	var list CustomerList
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, err
+	}
+
+	if len(list.Data) == 0 {
+		return nil, nil
+	}
+
+	return &list.Data[0], nil
+}

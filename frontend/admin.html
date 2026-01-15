@@ -477,6 +477,11 @@
                             <div class="stat-value small" id="ratelimit-today">0</div>
                             <div class="stat-subtext"><span id="ratelimit-week">0</span> this week</div>
                         </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Favorites</div>
+                            <div class="stat-value small" id="favorites-total">0</div>
+                            <div class="stat-subtext">domains saved</div>
+                        </div>
                     </div>
                 </div>
 
@@ -526,6 +531,16 @@
                         <div class="panel-body">
                             <ul class="user-list" id="signups-list">
                                 <li class="empty-state">No signups yet</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Recent Favorites -->
+                    <div class="panel">
+                        <div class="panel-header">Recent Favorites (20)</div>
+                        <div class="panel-body">
+                            <ul class="user-list" id="favorites-list">
+                                <li class="empty-state">No favorites yet</li>
                             </ul>
                         </div>
                     </div>
@@ -653,6 +668,22 @@
                 `).join('');
             } else {
                 signupsList.innerHTML = '<li class="empty-state">No signups yet</li>';
+            }
+
+            // Favorites
+            document.getElementById('favorites-total').textContent = data.favorites?.totalFavorites || 0;
+
+            // Recent favorites
+            const favoritesList = document.getElementById('favorites-list');
+            if (data.recentFavorites && data.recentFavorites.length > 0) {
+                favoritesList.innerHTML = data.recentFavorites.map(fav => `
+                    <li class="user-item">
+                        <span class="user-email">${escapeHtml(fav.domain)}</span>
+                        <span class="user-meta">${formatRelativeTime(fav.createdAt)}</span>
+                    </li>
+                `).join('');
+            } else {
+                favoritesList.innerHTML = '<li class="empty-state">No favorites yet</li>';
             }
         }
 

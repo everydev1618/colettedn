@@ -342,6 +342,23 @@ Resources:
         - AttributeName: searched_at
           KeyType: RANGE
 
+  # Owned domains table (tracks user domain acquisitions)
+  OwnedTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: colettedn-owned
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: domain
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: domain
+          KeyType: RANGE
+
   # Analytics table for tracking metrics
   AnalyticsTable:
     Type: AWS::DynamoDB::Table

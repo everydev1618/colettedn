@@ -6,6 +6,7 @@ import (
 
 	"github.com/everydev1618/colettedn/internal/analytics"
 	"github.com/everydev1618/colettedn/internal/auth"
+	"github.com/everydev1618/colettedn/internal/favorites"
 	"github.com/everydev1618/colettedn/internal/user"
 )
 
@@ -25,9 +26,13 @@ type ComprehensiveStats struct {
 	// Operational metrics
 	Operational OperationalMetrics `json:"operational"`
 
+	// Favorites metrics
+	Favorites FavoritesMetrics `json:"favorites"`
+
 	// Recent activity
 	RecentSubscribers []SubscriberInfo `json:"recentSubscribers"`
 	RecentSignups     []SignupInfo     `json:"recentSignups"`
+	RecentFavorites   []FavoriteInfo   `json:"recentFavorites"`
 
 	// Trends (last 14 days)
 	Trends TrendData `json:"trends"`
@@ -90,13 +95,26 @@ type DailyDataPoint struct {
 	Count int64  `json:"count"`
 }
 
-type AdminHandler struct {
-	userService user.UserService
+type FavoriteInfo struct {
+	Domain    string `json:"domain"`
+	UserID    string `json:"userId"`
+	CreatedAt int64  `json:"createdAt"`
 }
 
-func NewAdminHandler(userService user.UserService) *AdminHandler {
+type FavoritesMetrics struct {
+	TotalFavorites  int64 `json:"totalFavorites"`
+	UsersWithFavs   int   `json:"usersWithFavorites"`
+}
+
+type AdminHandler struct {
+	userService      user.UserService
+	favoritesService favorites.FavoritesService
+}
+
+func NewAdminHandler(userService user.UserService, favoritesService favorites.FavoritesService) *AdminHandler {
 	return &AdminHandler{
-		userService: userService,
+		userService:      userService,
+		favoritesService: favoritesService,
 	}
 }
 
@@ -121,6 +139,14 @@ func (h *AdminHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	stats := &ComprehensiveStats{
 		RecentSubscribers: []SubscriberInfo{},
 		RecentSignups:     []SignupInfo{},
+		RecentFavorites:   []FavoriteInfo{},
+		Trends: TrendData{
+			Searches:  []DailyDataPoint{},
+			Signups:   []DailyDataPoint{},
+			Upgrades:  []DailyDataPoint{},
+			RateHits:  []DailyDataPoint{},
+			Affiliate: []DailyDataPoint{},
+		},
 	}
 
 	now := time.Now()
@@ -250,6 +276,24 @@ func (h *AdminHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	if affiliateTrend, err := a.GetDailyTrend(ctx, "affiliate_clicks", 14); err == nil {
 		for _, t := range affiliateTrend {
 			stats.Trends.Affiliate = append(stats.Trends.Affiliate, DailyDataPoint{Date: t.Date, Count: t.Count})
+		}
+	}
+
+	// Favorites metrics
+	if h.favoritesService != nil {
+		if totalFavs, err := h.favoritesService.GetTotalCount(ctx); err == nil {
+			stats.Favorites.TotalFavorites = totalFavs
+		}
+
+		// Recent favorites
+		if recentFavs, err := h.favoritesService.ListRecent(ctx, 20); err == nil {
+			for _, f := range recentFavs {
+				stats.RecentFavorites = append(stats.RecentFavorites, FavoriteInfo{
+					Domain:    f.Domain,
+					UserID:    f.UserID,
+					CreatedAt: f.CreatedAt * 1000, // JS expects milliseconds
+				})
+			}
 		}
 	}
 

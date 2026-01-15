@@ -1,4 +1,4 @@
-package favorites
+package owned
 
 import (
 	"context"
@@ -11,12 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
-
-type Favorite struct {
-	UserID    string `dynamodbav:"user_id" json:"userId"`
-	Domain    string `dynamodbav:"domain" json:"domain"`
-	CreatedAt int64  `dynamodbav:"created_at" json:"createdAt"`
-}
 
 type Service struct {
 	db        *dynamodb.Client
@@ -35,16 +29,17 @@ func NewService(tableName string) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) Add(ctx context.Context, userID, domain string) (*Favorite, error) {
+func (s *Service) Add(ctx context.Context, userID, domain string, acquisitionType AcquisitionType) (*OwnedDomain, error) {
 	domain = strings.ToLower(strings.TrimSpace(domain))
 
-	fav := &Favorite{
-		UserID:    userID,
-		Domain:    domain,
-		CreatedAt: time.Now().Unix(),
+	owned := &OwnedDomain{
+		UserID:          userID,
+		Domain:          domain,
+		AcquisitionType: acquisitionType,
+		CreatedAt:       time.Now().Unix(),
 	}
 
-	av, err := attributevalue.MarshalMap(fav)
+	av, err := attributevalue.MarshalMap(owned)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +52,7 @@ func (s *Service) Add(ctx context.Context, userID, domain string) (*Favorite, er
 		return nil, err
 	}
 
-	return fav, nil
+	return owned, nil
 }
 
 func (s *Service) Remove(ctx context.Context, userID, domain string) error {
@@ -73,7 +68,7 @@ func (s *Service) Remove(ctx context.Context, userID, domain string) error {
 	return err
 }
 
-func (s *Service) List(ctx context.Context, userID string) ([]Favorite, error) {
+func (s *Service) List(ctx context.Context, userID string) ([]OwnedDomain, error) {
 	result, err := s.db.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(s.tableName),
 		KeyConditionExpression: aws.String("user_id = :uid"),
@@ -86,15 +81,15 @@ func (s *Service) List(ctx context.Context, userID string) ([]Favorite, error) {
 		return nil, err
 	}
 
-	var favorites []Favorite
-	if err := attributevalue.UnmarshalListOfMaps(result.Items, &favorites); err != nil {
+	var domains []OwnedDomain
+	if err := attributevalue.UnmarshalListOfMaps(result.Items, &domains); err != nil {
 		return nil, err
 	}
 
-	return favorites, nil
+	return domains, nil
 }
 
-func (s *Service) IsFavorite(ctx context.Context, userID, domain string) (bool, error) {
+func (s *Service) IsOwned(ctx context.Context, userID, domain string) (*OwnedDomain, error) {
 	domain = strings.ToLower(strings.TrimSpace(domain))
 
 	result, err := s.db.GetItem(ctx, &dynamodb.GetItemInput{
@@ -105,27 +100,21 @@ func (s *Service) IsFavorite(ctx context.Context, userID, domain string) (bool, 
 		},
 	})
 	if err != nil {
-		return false, err
-	}
-
-	return result.Item != nil, nil
-}
-
-func (s *Service) GetFavoritesMap(ctx context.Context, userID string, domains []string) (map[string]bool, error) {
-	favorites, err := s.List(ctx, userID)
-	if err != nil {
 		return nil, err
 	}
 
-	favMap := make(map[string]bool)
-	for _, f := range favorites {
-		favMap[f.Domain] = true
+	if result.Item == nil {
+		return nil, nil
 	}
 
-	return favMap, nil
+	var owned OwnedDomain
+	if err := attributevalue.UnmarshalMap(result.Item, &owned); err != nil {
+		return nil, err
+	}
+
+	return &owned, nil
 }
 
-// GetTotalCount returns the total number of favorites across all users
 func (s *Service) GetTotalCount(ctx context.Context) (int64, error) {
 	result, err := s.db.Scan(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(s.tableName),
@@ -137,10 +126,7 @@ func (s *Service) GetTotalCount(ctx context.Context) (int64, error) {
 	return int64(result.Count), nil
 }
 
-// ListRecent returns the most recent favorites across all users
-func (s *Service) ListRecent(ctx context.Context, limit int) ([]Favorite, error) {
-	// Scan the table and sort by created_at client-side
-	// This is inefficient but OK for admin dashboard with small data
+func (s *Service) GetCountByType(ctx context.Context) (map[AcquisitionType]int64, error) {
 	result, err := s.db.Scan(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(s.tableName),
 	})
@@ -148,24 +134,48 @@ func (s *Service) ListRecent(ctx context.Context, limit int) ([]Favorite, error)
 		return nil, err
 	}
 
-	var favorites []Favorite
-	if err := attributevalue.UnmarshalListOfMaps(result.Items, &favorites); err != nil {
+	var domains []OwnedDomain
+	if err := attributevalue.UnmarshalListOfMaps(result.Items, &domains); err != nil {
+		return nil, err
+	}
+
+	counts := map[AcquisitionType]int64{
+		AcquisitionPreviouslyOwned: 0,
+		AcquisitionFoundViaColette: 0,
+	}
+
+	for _, d := range domains {
+		counts[d.AcquisitionType]++
+	}
+
+	return counts, nil
+}
+
+func (s *Service) ListRecent(ctx context.Context, limit int) ([]OwnedDomain, error) {
+	result, err := s.db.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(s.tableName),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var domains []OwnedDomain
+	if err := attributevalue.UnmarshalListOfMaps(result.Items, &domains); err != nil {
 		return nil, err
 	}
 
 	// Sort by created_at descending
-	for i := 0; i < len(favorites)-1; i++ {
-		for j := i + 1; j < len(favorites); j++ {
-			if favorites[j].CreatedAt > favorites[i].CreatedAt {
-				favorites[i], favorites[j] = favorites[j], favorites[i]
+	for i := 0; i < len(domains)-1; i++ {
+		for j := i + 1; j < len(domains); j++ {
+			if domains[j].CreatedAt > domains[i].CreatedAt {
+				domains[i], domains[j] = domains[j], domains[i]
 			}
 		}
 	}
 
-	// Return up to limit
-	if len(favorites) > limit {
-		favorites = favorites[:limit]
+	if len(domains) > limit {
+		domains = domains[:limit]
 	}
 
-	return favorites, nil
+	return domains, nil
 }
