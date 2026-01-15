@@ -35,6 +35,28 @@ document.addEventListener('DOMContentLoaded', () => {
         btnText.hidden = true;
         btnLoading.hidden = false;
         categories = {};
+        resultsEl.innerHTML = `
+            <div class="searching-state">
+                <div class="search-animation">
+                    <div class="orbit">
+                        <div class="orbit-dot"></div>
+                        <div class="orbit-dot"></div>
+                        <div class="orbit-dot"></div>
+                    </div>
+                    <div class="orbit orbit-reverse">
+                        <div class="orbit-dot"></div>
+                        <div class="orbit-dot"></div>
+                    </div>
+                    <div class="search-icon">◇</div>
+                </div>
+                <p class="search-text">Searching for available domains<span class="search-dots"></span></p>
+                <p class="search-subtext">May run up to 5 rounds to find the best options</p>
+                <div class="tld-parade">
+                    <span>.com</span><span>.io</span><span>.co</span><span>.dev</span><span>.app</span><span>.ai</span>
+                </div>
+            </div>`;
+        emptyState.hidden = true;
+        resultsEl.hidden = false;
 
         try {
             const response = await fetch('/api/generate', {
@@ -50,24 +72,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Store categorized domains
+            // Results come back with availability already checked
             categories = data.categories || {};
+            const rounds = data.rounds || 1;
 
-            // Mark all as checking
-            Object.keys(categories).forEach(cat => {
-                categories[cat] = categories[cat].map(d => ({
-                    ...d,
-                    checking: true
-                }));
-            });
-
-            renderResults();
-            emptyState.hidden = true;
-            resultsEl.hidden = false;
-
-            // Collect all domains for availability check
-            const allDomains = Object.values(categories).flat().map(d => d.name);
-            checkAvailability(allDomains);
+            renderResults(rounds);
 
         } catch (err) {
             showError('Failed to generate domains. Please try again.');
@@ -79,27 +88,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function renderResults() {
+    function renderResults(rounds) {
         const categoryOrder = ['Professional', 'Playful', 'Techy', 'Minimal'];
+        const totalDomains = Object.values(categories).flat().length;
 
-        resultsEl.innerHTML = categoryOrder
-            .filter(cat => categories[cat] && categories[cat].length > 0)
-            .map(cat => {
-                const domains = categories[cat].filter(d => d.checking || d.available);
-                if (domains.length === 0) return '';
+        // Small inline badge for multi-round searches
+        const roundsBadge = rounds > 1
+            ? `<span class="rounds-badge">${rounds} rounds · ${totalDomains} found</span>`
+            : '';
 
+        const sectionsHtml = categoryOrder
+            .map((cat, idx) => {
+                const domains = categories[cat] || [];
+                // Put the rounds badge after the first category title
+                const badge = idx === 0 ? roundsBadge : '';
+                const gridContent = domains.length > 0
+                    ? domains.map((d, i) => renderDomainCard(d, i)).join('')
+                    : '<div class="empty-category">No available domains found</div>';
                 return `
-                    <section class="category">
+                    <section class="category${domains.length === 0 ? ' category-empty' : ''}">
                         <div class="category-header">
                             <h2 class="category-title">${cat}</h2>
+                            <span class="category-count">${domains.length}</span>
+                            ${badge}
                             <div class="category-line"></div>
                         </div>
                         <div class="domain-grid">
-                            ${domains.map((d, i) => renderDomainCard(d, i)).join('')}
+                            ${gridContent}
                         </div>
                     </section>
                 `;
             }).join('');
+
+        resultsEl.innerHTML = sectionsHtml;
 
         // Add refresh button handlers
         resultsEl.querySelectorAll('.cache-refresh').forEach(btn => {
@@ -113,31 +134,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderDomainCard(domain, index) {
         let metaHtml = '';
 
-        if (domain.checking) {
-            metaHtml = '<span class="domain-status checking">Checking</span>';
-        } else if (domain.available) {
-            const statusClass = domain.unverified ? 'unverified' : 'available';
-            const statusText = domain.unverified ? 'Verify' : 'Available';
+        const statusClass = domain.available === false ? 'taken' : 'available';
+        const statusText = domain.available === null ? 'Verify' : 'Available';
 
-            metaHtml = `<span class="domain-status ${statusClass}">${statusText}</span>`;
+        metaHtml = `<span class="domain-status ${statusClass}">${statusText}</span>`;
 
-            if (domain.isPremium) {
-                metaHtml += '<span class="domain-premium">Premium</span>';
-            }
-            if (domain.price) {
-                metaHtml += `<span class="domain-price">$${domain.price.toFixed(0)}</span>`;
-            }
-            if (domain.fromCache && domain.checkedAt) {
-                metaHtml += `<button class="cache-refresh" data-domain="${escapeHtml(domain.name)}">
-                    <span class="cache-time">${formatRelativeTime(domain.checkedAt)}</span>
-                    <span class="refresh-icon">↻</span>
-                </button>`;
-            }
+        if (domain.isPremium) {
+            metaHtml += '<span class="domain-premium">Premium</span>';
+        }
+        if (domain.price) {
+            metaHtml += `<span class="domain-price">$${domain.price.toFixed(0)}</span>`;
+        }
+        if (domain.fromCache && domain.checkedAt) {
+            metaHtml += `<button class="cache-refresh" data-domain="${escapeHtml(domain.name)}">
+                <span class="cache-time">${formatRelativeTime(domain.checkedAt)}</span>
+                <span class="refresh-icon">↻</span>
+            </button>`;
         }
 
-        const linkHtml = domain.available && !domain.checking
-            ? `<a href="${getAffiliateUrl(domain.name)}" target="_blank" rel="noopener" class="domain-link">Register →</a>`
-            : '';
+        const linkHtml = `<a href="${getAffiliateUrl(domain.name)}" target="_blank" rel="noopener" class="domain-link">Register →</a>`;
 
         return `
             <div class="domain-card" style="animation-delay: ${index * 0.03}s">
@@ -150,59 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    async function checkAvailability(domains) {
-        try {
-            const response = await fetch('/api/check', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ domains }),
-            });
-
-            const data = await response.json();
-
-            if (data.error) {
-                console.warn('Availability check failed:', data.error);
-                // Mark all as unverified
-                Object.keys(categories).forEach(cat => {
-                    categories[cat].forEach(d => {
-                        d.checking = false;
-                        d.available = true;
-                        d.unverified = true;
-                    });
-                });
-                renderResults();
-                return;
-            }
-
-            // Update domain status
-            const resultMap = {};
-            data.results.forEach(r => {
-                resultMap[r.name.toLowerCase()] = r;
-            });
-
-            Object.keys(categories).forEach(cat => {
-                categories[cat].forEach(d => {
-                    const result = resultMap[d.name.toLowerCase()];
-                    if (result) {
-                        d.checking = false;
-                        d.available = result.available !== null ? result.available : true;
-                        d.isPremium = result.isPremium;
-                        d.price = result.price;
-                        d.unverified = result.available === null;
-                        d.fromCache = result.fromCache;
-                        d.checkedAt = result.checkedAt;
-                    }
-                });
-                // Filter out taken domains
-                categories[cat] = categories[cat].filter(d => d.checking || d.available);
-            });
-
-            renderResults();
-        } catch (err) {
-            console.error('Availability check error:', err);
-        }
-    }
-
     async function refreshDomain(domainName) {
         // Find and mark as checking
         Object.keys(categories).forEach(cat => {
@@ -212,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 domain.fromCache = false;
             }
         });
-        renderResults();
+        renderResults(1);
 
         try {
             const response = await fetch('/api/check', {
@@ -234,17 +196,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         domain.available = result.available !== null ? result.available : true;
                         domain.isPremium = result.isPremium;
                         domain.price = result.price;
-                        domain.unverified = result.available === null;
                         domain.fromCache = false;
                         domain.checkedAt = result.checkedAt;
 
+                        // Remove if taken
                         if (!domain.available) {
                             categories[cat] = categories[cat].filter(d => d.name !== domainName);
                         }
                     }
                 });
             }
-            renderResults();
+            renderResults(1);
         } catch (err) {
             console.error('Refresh error:', err);
         }

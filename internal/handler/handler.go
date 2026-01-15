@@ -2,26 +2,49 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/everydev1618/colettedn/internal/cache"
 	"github.com/everydev1618/colettedn/internal/generator"
 	"github.com/everydev1618/colettedn/internal/namecheap"
+	"github.com/everydev1618/colettedn/internal/ratelimit"
 )
 
 type Handler struct {
-	gen   *generator.Generator
-	nc    *namecheap.Client
-	cache cache.Cacher
+	gen     *generator.Generator
+	nc      *namecheap.Client
+	cache   cache.Cacher
+	limiter *ratelimit.Limiter
 }
 
 func New() *Handler {
 	h := &Handler{
 		gen: generator.New(os.Getenv("ANTHROPIC_API_KEY")),
 	}
+
+	// Initialize rate limiter (configurable via env vars)
+	perMinute := 5
+	dailyLimit := 30
+	if v := os.Getenv("RATE_LIMIT_PER_MINUTE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			perMinute = n
+		}
+	}
+	if v := os.Getenv("RATE_LIMIT_DAILY"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			dailyLimit = n
+		}
+	}
+	h.limiter = ratelimit.New(ratelimit.Config{
+		PerMinute:  perMinute,
+		DailyLimit: dailyLimit,
+	})
 
 	// Initialize Namecheap client if configured
 	if os.Getenv("NAMECHEAP_API_KEY") != "" {
@@ -57,16 +80,19 @@ func New() *Handler {
 
 type GenerateRequest struct {
 	Description string `json:"description"`
-	Vibe        string `json:"vibe"`
-	NameStyle   string `json:"nameStyle"`
-	Length      string `json:"length"`
 	TLDStyle    string `json:"tldStyle"`
 }
 
 type GenerateResponse struct {
-	Domains []DomainResult `json:"domains"`
-	Error   string         `json:"error,omitempty"`
+	Categories map[string][]DomainResult `json:"categories"`
+	Rounds     int                       `json:"rounds"`
+	Error      string                    `json:"error,omitempty"`
 }
+
+const (
+	minPerCategory = 4 // Keep searching until each category has at least this many
+	maxRounds      = 5 // Maximum generation rounds to avoid runaway API costs
+)
 
 type DomainResult struct {
 	Name      string   `json:"name"`
@@ -88,6 +114,23 @@ type CheckResponse struct {
 }
 
 func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
+	// Rate limiting
+	ip := getClientIP(r)
+	rl := h.limiter.Allow(ip)
+	if !rl.Allowed {
+		// Log rate limit violations for monitoring/alerting
+		log.Printf("[RATE_LIMIT] ip=%s reason=%s daily_used=%d minute_used=%d",
+			ip, rl.Reason, rl.DailyUsed, rl.MinuteUsed)
+
+		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", rl.RetryAfter.Seconds()))
+		w.Header().Set("X-RateLimit-Remaining", "0")
+		writeJSON(w, http.StatusTooManyRequests, GenerateResponse{
+			Error: fmt.Sprintf("Rate limit exceeded. Try again in %s.", formatDuration(rl.RetryAfter)),
+		})
+		return
+	}
+	w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", rl.DailyRemaining))
+
 	var req GenerateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, GenerateResponse{Error: "Invalid request body"})
@@ -96,6 +139,11 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 
 	if req.Description == "" {
 		writeJSON(w, http.StatusBadRequest, GenerateResponse{Error: "Description is required"})
+		return
+	}
+
+	if len(req.Description) > 500 {
+		writeJSON(w, http.StatusBadRequest, GenerateResponse{Error: "Description too long (max 500 characters)"})
 		return
 	}
 
@@ -108,25 +156,155 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		tlds = []string{".com", ".co", ".net", ".org"}
 	}
 
-	// Build generation options
-	opts := generator.Options{
-		Vibe:      req.Vibe,
-		NameStyle: req.NameStyle,
-		Length:    req.Length,
+	// Multi-round generation with availability checking
+	availableByCategory := make(map[string][]DomainResult)
+	var takenDomains []string
+	rounds := 0
+
+	for rounds < maxRounds {
+		rounds++
+
+		// Generate domains (with exclusions after first round)
+		var categorized map[string][]string
+		var err error
+		if len(takenDomains) == 0 {
+			categorized, err = h.gen.GenerateCategorized(r.Context(), req.Description, tlds)
+		} else {
+			categorized, err = h.gen.GenerateCategorizedWithExclusions(r.Context(), req.Description, tlds, takenDomains)
+		}
+		if err != nil {
+			// If we have some results, return those; otherwise error
+			if countAvailable(availableByCategory) > 0 {
+				break
+			}
+			writeJSON(w, http.StatusInternalServerError, GenerateResponse{Error: err.Error()})
+			return
+		}
+
+		// Collect all new domains for availability check
+		var newDomains []string
+		for _, domains := range categorized {
+			newDomains = append(newDomains, domains...)
+		}
+
+		// Check availability (if Namecheap is configured)
+		availabilityMap := make(map[string]*availabilityInfo)
+		if h.nc != nil && len(newDomains) > 0 {
+			availabilityMap = h.checkDomainsAvailability(r, newDomains)
+		}
+
+		// Sort domains into available/taken
+		for cat, domains := range categorized {
+			for _, d := range domains {
+				d = strings.ToLower(d)
+
+				if info, ok := availabilityMap[d]; ok {
+					if info.available {
+						// Available - add to results
+						result := DomainResult{
+							Name:      d,
+							Available: &info.available,
+							IsPremium: &info.isPremium,
+							Price:     info.price,
+							FromCache: info.fromCache,
+							CheckedAt: info.checkedAt,
+						}
+						availableByCategory[cat] = append(availableByCategory[cat], result)
+					} else {
+						// Taken - add to exclusion list for next round
+						takenDomains = append(takenDomains, d)
+					}
+				} else if h.nc == nil {
+					// No availability checker - include all as unverified
+					result := DomainResult{Name: d}
+					availableByCategory[cat] = append(availableByCategory[cat], result)
+				}
+			}
+		}
+
+		// Check if we have enough available domains in each category
+		if hasEnoughPerCategory(availableByCategory) || h.nc == nil {
+			break
+		}
 	}
 
-	domains, err := h.gen.Generate(r.Context(), req.Description, tlds, opts)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, GenerateResponse{Error: err.Error()})
-		return
+	writeJSON(w, http.StatusOK, GenerateResponse{
+		Categories: availableByCategory,
+		Rounds:     rounds,
+	})
+}
+
+type availabilityInfo struct {
+	available bool
+	isPremium bool
+	price     *float64
+	fromCache bool
+	checkedAt *int64
+}
+
+func (h *Handler) checkDomainsAvailability(r *http.Request, domains []string) map[string]*availabilityInfo {
+	result := make(map[string]*availabilityInfo)
+
+	// Check cache first
+	var uncached []string
+	if h.cache != nil {
+		cached, notCached := h.cache.GetMany(domains)
+		for d, c := range cached {
+			checkedAt := c.CheckedAt.Unix()
+			result[d] = &availabilityInfo{
+				available: c.Available,
+				isPremium: c.IsPremium,
+				price:     c.Price,
+				fromCache: true,
+				checkedAt: &checkedAt,
+			}
+		}
+		uncached = notCached
+	} else {
+		uncached = domains
 	}
 
-	results := make([]DomainResult, len(domains))
-	for i, d := range domains {
-		results[i] = DomainResult{Name: d}
+	// Fetch uncached from API
+	if len(uncached) > 0 {
+		apiResults, err := h.nc.CheckAvailability(r.Context(), uncached)
+		if err == nil {
+			now := time.Now().Unix()
+			for _, ar := range apiResults {
+				key := strings.ToLower(ar.Domain)
+				result[key] = &availabilityInfo{
+					available: ar.Available,
+					isPremium: ar.IsPremium,
+					price:     ar.Price,
+					fromCache: false,
+					checkedAt: &now,
+				}
+				// Cache the result
+				if h.cache != nil {
+					h.cache.Set(key, ar.Available, ar.IsPremium, ar.Price)
+				}
+			}
+		}
 	}
 
-	writeJSON(w, http.StatusOK, GenerateResponse{Domains: results})
+	return result
+}
+
+func countAvailable(categories map[string][]DomainResult) int {
+	total := 0
+	for _, results := range categories {
+		total += len(results)
+	}
+	return total
+}
+
+func hasEnoughPerCategory(categories map[string][]DomainResult) bool {
+	requiredCategories := []string{"Professional", "Playful", "Techy", "Minimal"}
+	for _, cat := range requiredCategories {
+		if len(categories[cat]) < minPerCategory {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *Handler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
@@ -237,4 +415,39 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+// getClientIP extracts the client IP from the request, handling proxies
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For (common for proxies/load balancers)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// Take the first IP (original client)
+		if idx := strings.Index(xff, ","); idx != -1 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return strings.TrimSpace(xff)
+	}
+
+	// Check X-Real-IP (nginx)
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+
+	// Fall back to RemoteAddr
+	ip := r.RemoteAddr
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		ip = ip[:idx]
+	}
+	return ip
+}
+
+// formatDuration formats a duration in a human-readable way
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%d seconds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%d minutes", int(d.Minutes()))
+	}
+	return fmt.Sprintf("%.1f hours", d.Hours())
 }

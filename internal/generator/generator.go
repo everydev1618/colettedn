@@ -14,12 +14,6 @@ type Generator struct {
 	client *http.Client
 }
 
-type Options struct {
-	Vibe      string // professional, playful, techy, minimal
-	NameStyle string // brandable, descriptive, compound
-	Length    string // short, medium, any
-}
-
 func New(apiKey string) *Generator {
 	return &Generator{
 		apiKey: apiKey,
@@ -47,16 +41,22 @@ type claudeResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func (g *Generator) Generate(ctx context.Context, description string, tlds []string, opts Options) ([]string, error) {
+// GenerateCategorized generates domain names categorized by vibe
+func (g *Generator) GenerateCategorized(ctx context.Context, description string, tlds []string) (map[string][]string, error) {
+	return g.GenerateCategorizedWithExclusions(ctx, description, tlds, nil)
+}
+
+// GenerateCategorizedWithExclusions generates domain names, avoiding specified taken domains
+func (g *Generator) GenerateCategorizedWithExclusions(ctx context.Context, description string, tlds []string, takenDomains []string) (map[string][]string, error) {
 	if g.apiKey == "" {
 		return nil, fmt.Errorf("ANTHROPIC_API_KEY not set")
 	}
 
-	prompt := buildPrompt(description, tlds, opts)
+	prompt := buildCategorizedPromptWithExclusions(description, tlds, takenDomains)
 
 	reqBody := claudeRequest{
 		Model:     "claude-sonnet-4-20250514",
-		MaxTokens: 2048,
+		MaxTokens: 4096,
 		Messages: []message{
 			{Role: "user", Content: prompt},
 		},
@@ -95,78 +95,71 @@ func (g *Generator) Generate(ctx context.Context, description string, tlds []str
 		return nil, fmt.Errorf("empty response from API")
 	}
 
-	return parseDomains(claudeResp.Content[0].Text), nil
+	return parseCategorizedDomains(claudeResp.Content[0].Text), nil
 }
 
-func buildPrompt(description string, tlds []string, opts Options) string {
-	// Build vibe guidance
-	vibeGuide := ""
-	switch opts.Vibe {
-	case "professional":
-		vibeGuide = `- VIBE: Professional and trustworthy. Think established companies, corporate feel, credible and authoritative. Names like "Stripe", "Notion", "Linear", "Figma". Clean, serious, instills confidence.`
-	case "playful":
-		vibeGuide = `- VIBE: Playful and fun. Think friendly, approachable, maybe a bit quirky or whimsical. Names like "Slack", "Discord", "Giphy", "Wobble". Can be cute, surprising, or have personality.`
-	case "techy":
-		vibeGuide = `- VIBE: Techy and startup-y. Think Silicon Valley, cutting-edge, modern tech. Names like "Vercel", "Supabase", "Deno", "Bun". Can sound technical, futuristic, or use tech-inspired neologisms.`
-	case "minimal":
-		vibeGuide = `- VIBE: Minimal and clean. Think simple, elegant, understated. Names like "Arc", "Linear", "Craft", "Bear". Short, memorable single words or very tight combinations. Less is more.`
-	default:
-		vibeGuide = `- VIBE: Balanced and brandable. Professional but modern.`
-	}
+func buildCategorizedPrompt(description string, tlds []string) string {
+	return buildCategorizedPromptWithExclusions(description, tlds, nil)
+}
 
-	// Build name style guidance
-	styleGuide := ""
-	switch opts.NameStyle {
-	case "brandable":
-		styleGuide = `- STYLE: Invented/brandable names. Create completely new words that sound good and are memorable. Think "Spotify", "Klarna", "Twilio", "Zapier". Made-up words, creative letter combinations, words that feel like they could be real but aren't. Highly likely to have available .com domains.`
-	case "descriptive":
-		styleGuide = `- STYLE: Descriptive names that hint at what the product does. Think "Dropbox", "Salesforce", "Mailchimp", "Grammarly". The name gives a clue about the function or benefit. Can use metaphors or word plays.`
-	case "compound":
-		styleGuide = `- STYLE: Compound words - two real words merged together. Think "Facebook", "YouTube", "WordPress", "Snapchat". Combine relevant concepts, actions, or metaphors into memorable mashups.`
-	default:
-		styleGuide = `- STYLE: Mix of brandable invented words and clever compounds.`
-	}
+func buildCategorizedPromptWithExclusions(description string, tlds []string, takenDomains []string) string {
+	exclusionNote := ""
+	if len(takenDomains) > 0 {
+		// Group taken domains to show patterns, limit to avoid huge prompts
+		maxToShow := 30
+		if len(takenDomains) > maxToShow {
+			takenDomains = takenDomains[:maxToShow]
+		}
+		exclusionNote = fmt.Sprintf(`
 
-	// Build length guidance
-	lengthGuide := ""
-	switch opts.Length {
-	case "short":
-		lengthGuide = `- LENGTH: Keep it SHORT. Maximum 6 characters before the TLD. Single syllable or very tight two-syllable names. Think "Arc", "Dub", "Loom", "Zoom", "Miro".`
-	case "medium":
-		lengthGuide = `- LENGTH: Medium length, 7-10 characters before the TLD. Sweet spot for memorability and brandability. Think "Notion", "Figma", "Stripe", "Canva".`
-	case "any":
-		lengthGuide = `- LENGTH: Any length that sounds good and is memorable. Prioritize the best-sounding names regardless of length.`
-	default:
-		lengthGuide = `- LENGTH: Aim for 6-10 characters before the TLD.`
-	}
-
-	return fmt.Sprintf(`Generate 50 creative domain name suggestions based on this project description:
-
-"%s"
-
-TLDs to use: %s
-
-Style Guidelines:
-%s
-%s
+IMPORTANT - These domains are TAKEN. Avoid these exact names AND similar patterns:
 %s
 
-Technical Guidelines:
-- IMPORTANT: Generate at least 60%% of suggestions as .com domains since they're most desirable
-- Use unusual, invented, or uncommon words that are more likely to be available
-- Make names memorable, brandable, and easy to spell
+Since these are taken, try COMPLETELY DIFFERENT approaches:
+- Use different root words and concepts
+- Try more abstract/invented words
+- Explore unexpected metaphors
+- Consider phonetic variations that don't resemble the taken names`, strings.Join(takenDomains, ", "))
+	}
+
+	return fmt.Sprintf(`Generate creative domain name suggestions for this project, organized by personality/vibe:
+
+PROJECT: "%s"
+
+TLDs to use: %s%s
+
+Generate names in 4 categories:
+
+1. **Professional** - Clean, trustworthy, corporate feel. Think "Stripe", "Notion", "Linear", "Figma". Names that instill confidence and credibility.
+
+2. **Playful** - Fun, friendly, approachable, maybe quirky. Think "Slack", "Discord", "Giphy". Names with personality that feel welcoming.
+
+3. **Techy** - Cutting-edge, startup-y, Silicon Valley feel. Think "Vercel", "Supabase", "Deno", "Bun". Futuristic neologisms.
+
+4. **Minimal** - Simple, elegant, understated. Think "Arc", "Craft", "Bear", "Loom". Short, memorable, less is more.
+
+Guidelines:
+- Generate 12-15 names per category (48-60 total)
+- Prioritize .com domains (60%% of suggestions)
+- Use invented/brandable words that are likely to be available
+- Keep names short (ideally 4-10 characters before TLD)
 - Avoid hyphens and numbers
-- Be creative - capture the essence, don't just use literal words from the description
-- Think like a startup founder looking for an available domain - get creative with spelling and word combinations
+- Be creative - don't use literal words from the description
+- Each category should have a distinct feel
 
-Output format: Return ONLY a JSON array of domain names, nothing else. Example:
-["brandname.com", "coolstartup.io", "myproject.ai"]`, description, strings.Join(tlds, ", "), vibeGuide, styleGuide, lengthGuide)
+Return ONLY valid JSON in this exact format:
+{
+  "Professional": ["domain1.com", "domain2.io"],
+  "Playful": ["domain3.com", "domain4.co"],
+  "Techy": ["domain5.com", "domain6.dev"],
+  "Minimal": ["domain7.com", "domain8.io"]
+}`, description, strings.Join(tlds, ", "), exclusionNote)
 }
 
-func parseDomains(text string) []string {
-	// Find JSON array in response
-	start := strings.Index(text, "[")
-	end := strings.LastIndex(text, "]")
+func parseCategorizedDomains(text string) map[string][]string {
+	// Find JSON object in response
+	start := strings.Index(text, "{")
+	end := strings.LastIndex(text, "}")
 
 	if start == -1 || end == -1 || end <= start {
 		return nil
@@ -174,17 +167,23 @@ func parseDomains(text string) []string {
 
 	jsonStr := text[start : end+1]
 
-	var domains []string
-	if err := json.Unmarshal([]byte(jsonStr), &domains); err != nil {
+	var result map[string][]string
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
 		return nil
 	}
 
 	// Clean up domains
-	var cleaned []string
-	for _, d := range domains {
-		d = strings.TrimSpace(strings.ToLower(d))
-		if d != "" && strings.Contains(d, ".") {
-			cleaned = append(cleaned, d)
+	cleaned := make(map[string][]string)
+	for cat, domains := range result {
+		var cleanList []string
+		for _, d := range domains {
+			d = strings.TrimSpace(strings.ToLower(d))
+			if d != "" && strings.Contains(d, ".") {
+				cleanList = append(cleanList, d)
+			}
+		}
+		if len(cleanList) > 0 {
+			cleaned[cat] = cleanList
 		}
 	}
 

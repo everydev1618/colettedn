@@ -11,27 +11,24 @@
 </head>
 <body>
     <div class="app-layout">
-        <!-- Left Sidebar -->
-        <aside class="sidebar">
-            <header class="sidebar-header">
-                <div class="logo">
-                    <span class="logo-mark">✦</span>
-                    <h1 class="logo-text">Colette</h1>
-                </div>
-            </header>
+        <!-- Top Search Bar -->
+        <header class="top-bar">
+            <div class="logo">
+                <span class="logo-mark">✦</span>
+                <h1 class="logo-text">Colette</h1>
+                <span class="logo-suffix">DN</span>
+            </div>
 
-            <form id="generate-form" class="form">
-                <div class="form-group">
-                    <textarea
-                        id="description"
-                        class="form-textarea"
-                        rows="4"
-                        placeholder="Describe what you're building..."
-                        required
-                    ></textarea>
-                </div>
+            <form id="generate-form" class="search-form">
+                <textarea
+                    id="description"
+                    class="search-input"
+                    rows="1"
+                    placeholder="Describe what you're building..."
+                    required
+                ></textarea>
 
-                <div class="form-group tld-group">
+                <div class="search-options">
                     <button type="button" class="tld-toggle active" data-value="traditional">.com .co .net</button>
                     <button type="button" class="tld-toggle" data-value="creative">.io .ai .app .dev</button>
                     <input type="hidden" id="tld-style" value="traditional">
@@ -44,11 +41,7 @@
                     </span>
                 </button>
             </form>
-
-            <footer class="sidebar-footer">
-                <p>Powered by Claude</p>
-            </footer>
-        </aside>
+        </header>
 
         <!-- Main Content -->
         <main class="main-content">
@@ -58,6 +51,10 @@
 
             <div id="results" class="results" hidden></div>
         </main>
+
+        <footer class="app-footer">
+            <p>Powered by Claude</p>
+        </footer>
     </div>
 
     <script src="/static/app.js"></script>
