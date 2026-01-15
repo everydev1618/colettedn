@@ -10,83 +10,54 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="page-wrapper">
-        <!-- Decorative corner ornaments -->
-        <div class="deco-corner deco-corner--tl"></div>
-        <div class="deco-corner deco-corner--tr"></div>
-        <div class="deco-corner deco-corner--bl"></div>
-        <div class="deco-corner deco-corner--br"></div>
+    <div class="app-layout">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <header class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-mark">✦</span>
+                    <h1 class="logo-text">Colette</h1>
+                </div>
+            </header>
 
-        <header class="header">
-            <div class="logo">
-                <span class="logo-mark">✦</span>
-                <h1 class="logo-text">Colette</h1>
-                <span class="logo-suffix">DN</span>
+            <form id="generate-form" class="form">
+                <div class="form-group">
+                    <textarea
+                        id="description"
+                        class="form-textarea"
+                        rows="4"
+                        placeholder="Describe what you're building..."
+                        required
+                    ></textarea>
+                </div>
+
+                <div class="form-group tld-group">
+                    <button type="button" class="tld-toggle active" data-value="traditional">.com .co .net</button>
+                    <button type="button" class="tld-toggle" data-value="creative">.io .ai .app .dev</button>
+                    <input type="hidden" id="tld-style" value="traditional">
+                </div>
+
+                <button type="submit" id="submit-btn" class="submit-btn">
+                    <span class="btn-text">Generate</span>
+                    <span class="btn-loading" hidden>
+                        <span class="spinner"></span>
+                    </span>
+                </button>
+            </form>
+
+            <footer class="sidebar-footer">
+                <p>Powered by Claude</p>
+            </footer>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div id="empty-state" class="empty-state">
+                <p>Describe your project to discover<br>the perfect domain name</p>
             </div>
-            <p class="tagline">The Domain Name Atelier</p>
-        </header>
 
-        <main class="main">
-            <section class="input-panel">
-                <div class="panel-header">
-                    <span class="panel-number">01</span>
-                    <h2 class="panel-title">Describe Your Vision</h2>
-                </div>
-
-                <form id="generate-form" class="form">
-                    <div class="form-group">
-                        <label for="description" class="form-label">What are you creating?</label>
-                        <textarea
-                            id="description"
-                            class="form-textarea"
-                            rows="4"
-                            placeholder="A minimalist productivity app for remote teams that helps with async communication..."
-                            required
-                        ></textarea>
-                        <div class="textarea-glow"></div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Domain Style</label>
-                        <div class="style-selector">
-                            <button type="button" class="style-option active" data-value="traditional">
-                                <span class="style-icon">◈</span>
-                                <span class="style-name">Classic</span>
-                                <span class="style-examples">.com, .co, .net</span>
-                            </button>
-                            <button type="button" class="style-option" data-value="creative">
-                                <span class="style-icon">◇</span>
-                                <span class="style-name">Modern</span>
-                                <span class="style-examples">.io, .ai, .app, .dev</span>
-                            </button>
-                        </div>
-                        <input type="hidden" id="tld-style" value="traditional">
-                    </div>
-
-                    <button type="submit" id="submit-btn" class="submit-btn">
-                        <span class="btn-text">
-                            <span class="btn-icon">→</span>
-                            Generate Names
-                        </span>
-                        <span class="btn-loading" hidden>
-                            <span class="spinner"></span>
-                            Crafting...
-                        </span>
-                    </button>
-                </form>
-            </section>
-
-            <section id="results" class="results-panel" hidden>
-                <div class="panel-header">
-                    <span class="panel-number">02</span>
-                    <h2 class="panel-title">Your Names</h2>
-                </div>
-
-                <div id="tld-tabs" class="tld-tabs"></div>
-                <div id="domain-list" class="domain-list"></div>
-            </section>
+            <div id="results" class="results" hidden></div>
         </main>
-
     </div>
 
     <script src="/static/app.js"></script>

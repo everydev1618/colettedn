@@ -14,6 +14,12 @@ type Generator struct {
 	client *http.Client
 }
 
+type Options struct {
+	Vibe      string // professional, playful, techy, minimal
+	NameStyle string // brandable, descriptive, compound
+	Length    string // short, medium, any
+}
+
 func New(apiKey string) *Generator {
 	return &Generator{
 		apiKey: apiKey,
@@ -41,12 +47,12 @@ type claudeResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func (g *Generator) Generate(ctx context.Context, description string, tlds []string) ([]string, error) {
+func (g *Generator) Generate(ctx context.Context, description string, tlds []string, opts Options) ([]string, error) {
 	if g.apiKey == "" {
 		return nil, fmt.Errorf("ANTHROPIC_API_KEY not set")
 	}
 
-	prompt := buildPrompt(description, tlds)
+	prompt := buildPrompt(description, tlds, opts)
 
 	reqBody := claudeRequest{
 		Model:     "claude-sonnet-4-20250514",
@@ -92,25 +98,69 @@ func (g *Generator) Generate(ctx context.Context, description string, tlds []str
 	return parseDomains(claudeResp.Content[0].Text), nil
 }
 
-func buildPrompt(description string, tlds []string) string {
+func buildPrompt(description string, tlds []string, opts Options) string {
+	// Build vibe guidance
+	vibeGuide := ""
+	switch opts.Vibe {
+	case "professional":
+		vibeGuide = `- VIBE: Professional and trustworthy. Think established companies, corporate feel, credible and authoritative. Names like "Stripe", "Notion", "Linear", "Figma". Clean, serious, instills confidence.`
+	case "playful":
+		vibeGuide = `- VIBE: Playful and fun. Think friendly, approachable, maybe a bit quirky or whimsical. Names like "Slack", "Discord", "Giphy", "Wobble". Can be cute, surprising, or have personality.`
+	case "techy":
+		vibeGuide = `- VIBE: Techy and startup-y. Think Silicon Valley, cutting-edge, modern tech. Names like "Vercel", "Supabase", "Deno", "Bun". Can sound technical, futuristic, or use tech-inspired neologisms.`
+	case "minimal":
+		vibeGuide = `- VIBE: Minimal and clean. Think simple, elegant, understated. Names like "Arc", "Linear", "Craft", "Bear". Short, memorable single words or very tight combinations. Less is more.`
+	default:
+		vibeGuide = `- VIBE: Balanced and brandable. Professional but modern.`
+	}
+
+	// Build name style guidance
+	styleGuide := ""
+	switch opts.NameStyle {
+	case "brandable":
+		styleGuide = `- STYLE: Invented/brandable names. Create completely new words that sound good and are memorable. Think "Spotify", "Klarna", "Twilio", "Zapier". Made-up words, creative letter combinations, words that feel like they could be real but aren't. Highly likely to have available .com domains.`
+	case "descriptive":
+		styleGuide = `- STYLE: Descriptive names that hint at what the product does. Think "Dropbox", "Salesforce", "Mailchimp", "Grammarly". The name gives a clue about the function or benefit. Can use metaphors or word plays.`
+	case "compound":
+		styleGuide = `- STYLE: Compound words - two real words merged together. Think "Facebook", "YouTube", "WordPress", "Snapchat". Combine relevant concepts, actions, or metaphors into memorable mashups.`
+	default:
+		styleGuide = `- STYLE: Mix of brandable invented words and clever compounds.`
+	}
+
+	// Build length guidance
+	lengthGuide := ""
+	switch opts.Length {
+	case "short":
+		lengthGuide = `- LENGTH: Keep it SHORT. Maximum 6 characters before the TLD. Single syllable or very tight two-syllable names. Think "Arc", "Dub", "Loom", "Zoom", "Miro".`
+	case "medium":
+		lengthGuide = `- LENGTH: Medium length, 7-10 characters before the TLD. Sweet spot for memorability and brandability. Think "Notion", "Figma", "Stripe", "Canva".`
+	case "any":
+		lengthGuide = `- LENGTH: Any length that sounds good and is memorable. Prioritize the best-sounding names regardless of length.`
+	default:
+		lengthGuide = `- LENGTH: Aim for 6-10 characters before the TLD.`
+	}
+
 	return fmt.Sprintf(`Generate 50 creative domain name suggestions based on this project description:
 
 "%s"
 
 TLDs to use: %s
 
-Guidelines:
+Style Guidelines:
+%s
+%s
+%s
+
+Technical Guidelines:
 - IMPORTANT: Generate at least 60%% of suggestions as .com domains since they're most desirable
-- Use unusual, invented, or uncommon words that are more likely to be available as .com
-- Mix naming strategies: invented words, creative misspellings, word mashups, prefixes/suffixes, metaphors
-- Keep names short (ideally 6-10 characters before TLD)
-- Make them memorable, brandable, and easy to spell
+- Use unusual, invented, or uncommon words that are more likely to be available
+- Make names memorable, brandable, and easy to spell
 - Avoid hyphens and numbers
-- Be creative - capture the essence and vibe, don't just use literal words from the description
-- Think like a startup founder looking for an available .com - get creative with spelling and word combinations
+- Be creative - capture the essence, don't just use literal words from the description
+- Think like a startup founder looking for an available domain - get creative with spelling and word combinations
 
 Output format: Return ONLY a JSON array of domain names, nothing else. Example:
-["brandname.com", "coolstartup.io", "myproject.ai"]`, description, strings.Join(tlds, ", "))
+["brandname.com", "coolstartup.io", "myproject.ai"]`, description, strings.Join(tlds, ", "), vibeGuide, styleGuide, lengthGuide)
 }
 
 func parseDomains(text string) []string {

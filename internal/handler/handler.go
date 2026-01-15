@@ -57,6 +57,9 @@ func New() *Handler {
 
 type GenerateRequest struct {
 	Description string `json:"description"`
+	Vibe        string `json:"vibe"`
+	NameStyle   string `json:"nameStyle"`
+	Length      string `json:"length"`
 	TLDStyle    string `json:"tldStyle"`
 }
 
@@ -70,10 +73,13 @@ type DomainResult struct {
 	Available *bool    `json:"available,omitempty"`
 	IsPremium *bool    `json:"isPremium,omitempty"`
 	Price     *float64 `json:"price,omitempty"`
+	FromCache bool     `json:"fromCache,omitempty"`
+	CheckedAt *int64   `json:"checkedAt,omitempty"` // Unix timestamp
 }
 
 type CheckRequest struct {
-	Domains []string `json:"domains"`
+	Domains      []string `json:"domains"`
+	ForceRefresh []string `json:"forceRefresh,omitempty"` // Domains to bypass cache for
 }
 
 type CheckResponse struct {
@@ -102,7 +108,14 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		tlds = []string{".com", ".co", ".net", ".org"}
 	}
 
-	domains, err := h.gen.Generate(r.Context(), req.Description, tlds)
+	// Build generation options
+	opts := generator.Options{
+		Vibe:      req.Vibe,
+		NameStyle: req.NameStyle,
+		Length:    req.Length,
+	}
+
+	domains, err := h.gen.Generate(r.Context(), req.Description, tlds, opts)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, GenerateResponse{Error: err.Error()})
 		return
@@ -142,11 +155,28 @@ func (h *Handler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check cache first
+	// Build set of domains to force refresh
+	forceRefreshSet := make(map[string]bool)
+	for _, d := range req.ForceRefresh {
+		forceRefreshSet[strings.TrimSpace(strings.ToLower(d))] = true
+	}
+
+	// Check cache first (excluding force refresh domains)
 	var uncached []string
 	cachedResults := make(map[string]*cache.CachedResult)
 	if h.cache != nil {
-		cachedResults, uncached = h.cache.GetMany(domains)
+		// Split domains into cacheable and force-refresh
+		var cacheableDomains []string
+		for _, d := range domains {
+			if forceRefreshSet[d] {
+				uncached = append(uncached, d)
+			} else {
+				cacheableDomains = append(cacheableDomains, d)
+			}
+		}
+		cached, notCached := h.cache.GetMany(cacheableDomains)
+		cachedResults = cached
+		uncached = append(uncached, notCached...)
 	} else {
 		uncached = domains
 	}
@@ -179,10 +209,16 @@ func (h *Handler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
 			results[i].Available = &cached.Available
 			results[i].IsPremium = &cached.IsPremium
 			results[i].Price = cached.Price
+			results[i].FromCache = true
+			checkedAt := cached.CheckedAt.Unix()
+			results[i].CheckedAt = &checkedAt
 		} else if api, ok := apiResults[d]; ok {
 			results[i].Available = &api.Available
 			results[i].IsPremium = &api.IsPremium
 			results[i].Price = api.Price
+			// Fresh result, not from cache
+			now := time.Now().Unix()
+			results[i].CheckedAt = &now
 		}
 	}
 
