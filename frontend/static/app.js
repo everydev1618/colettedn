@@ -121,11 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateAuthUI();
                 await fetchFavorites();
 
-                // Transition to app layout after sign-in
-                if (justSignedIn) {
-                    heroState.hidden = true;
-                    appLayout.hidden = false;
-                }
+                // Always go to app layout when logged in
+                heroState.hidden = true;
+                appLayout.hidden = false;
             } else {
                 // Invalid token
                 logout();
