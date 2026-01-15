@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userBtn = document.getElementById('user-btn');
     const userEmailEl = document.getElementById('user-email');
     const dropdownMenu = document.getElementById('dropdown-menu');
+    const searchConsoleBtn = document.getElementById('search-console-btn');
     const favoritesBtn = document.getElementById('favorites-btn');
     const logoutBtn = document.getElementById('logout-btn');
 
@@ -549,6 +550,13 @@ document.addEventListener('DOMContentLoaded', () => {
             heroDropdownMenu.hidden = true;
             heroUserDropdown.classList.remove('open');
         }
+    });
+
+    searchConsoleBtn.addEventListener('click', () => {
+        dropdownMenu.hidden = true;
+        userDropdown.classList.remove('open');
+        favoritesView.hidden = true;
+        resultsSection.hidden = false;
     });
 
     favoritesBtn.addEventListener('click', () => {
