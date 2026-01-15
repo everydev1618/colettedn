@@ -29,3 +29,8 @@ Thumbs.db
 # Build
 /dist/
 cache.db
+
+# SAM/Lambda build artifacts
+.aws-sam/
+cmd/lambda/bootstrap
+cmd/lambda/frontend/
