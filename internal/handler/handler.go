@@ -97,8 +97,10 @@ type GenerateResponse struct {
 }
 
 const (
-	minPerCategory = 4 // Keep searching until each category has at least this many
-	maxRounds      = 2 // Reduced from 5 to stay under API Gateway's 29s timeout
+	minPerCategory     = 4             // Keep searching until each category has at least this many
+	maxRounds          = 5             // Maximum rounds if time allows
+	apiGatewayTimeout  = 29 * time.Second // API Gateway hard limit
+	timeBufferPerRound = 12 * time.Second // Reserve time for each potential round
 )
 
 type DomainResult struct {
@@ -180,8 +182,19 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 	availableByCategory := make(map[string][]DomainResult)
 	var takenDomains []string
 	rounds := 0
+	startTime := time.Now()
 
 	for rounds < maxRounds {
+		// Check if we have enough time for another round
+		elapsed := time.Since(startTime)
+		timeRemaining := apiGatewayTimeout - elapsed
+		if rounds > 0 && timeRemaining < timeBufferPerRound {
+			// Not enough time for another round, return what we have
+			log.Printf("[TIMEOUT] Breaking after %d rounds (%.1fs elapsed, need %s buffer)",
+				rounds, elapsed.Seconds(), timeBufferPerRound)
+			break
+		}
+
 		rounds++
 
 		// Generate domains (with exclusions after first round)
