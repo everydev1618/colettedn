@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colette DN - Domain Name Brainstorming</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Colette DN</h1>
+            <p class="tagline">AI-powered domain name brainstorming</p>
+        </header>
+
+        <main>
+            <form id="generate-form" class="input-section">
+                <div class="form-group">
+                    <label for="keywords">Keywords</label>
+                    <input type="text" id="keywords" placeholder="e.g., cloud, sync, fast, data" required>
+                    <small>Comma-separated keywords describing your brand or project</small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="industry">Industry</label>
+                        <select id="industry">
+                            <option value="">Any</option>
+                            <option value="technology">Technology</option>
+                            <option value="finance">Finance</option>
+                            <option value="healthcare">Healthcare</option>
+                            <option value="education">Education</option>
+                            <option value="ecommerce">E-commerce</option>
+                            <option value="saas">SaaS</option>
+                            <option value="creative">Creative/Design</option>
+                            <option value="food">Food & Beverage</option>
+                            <option value="travel">Travel</option>
+                            <option value="fitness">Fitness/Wellness</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vibe">Vibe</label>
+                        <select id="vibe">
+                            <option value="">Any</option>
+                            <option value="professional">Professional</option>
+                            <option value="playful">Playful</option>
+                            <option value="techy">Techy</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="bold">Bold</option>
+                            <option value="friendly">Friendly</option>
+                            <option value="luxurious">Luxurious</option>
+                            <option value="quirky">Quirky</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>TLDs</label>
+                    <div class="tld-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tld" value=".com" checked> .com
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tld" value=".io" checked> .io
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tld" value=".co" checked> .co
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="tld" value=".ai" checked> .ai
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" id="submit-btn">
+                    <span class="btn-text">Generate Domain Names</span>
+                    <span class="btn-loading" hidden>Generating...</span>
+                </button>
+            </form>
+
+            <section id="results" class="results-section" hidden>
+                <h2>Suggestions</h2>
+                <div id="domain-list" class="domain-list"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Powered by Claude AI</p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
