@@ -8,6 +8,10 @@ Globals:
     MemorySize: 256
 
 Parameters:
+  DomainName:
+    Type: String
+    Default: colettedn.com
+    Description: Custom domain name for the API
   AnthropicApiKey:
     Type: String
     NoEcho: true
@@ -73,7 +77,42 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  # SSL Certificate
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref AWS::NoValue
+
+  # Custom Domain for API Gateway
+  ApiDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    DependsOn: Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      DomainNameConfigurations:
+        - EndpointType: REGIONAL
+          CertificateArn: !Ref Certificate
+
+  # Map the API to the custom domain
+  ApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn: ApiDomainName
+    Properties:
+      ApiId: !Ref ServerlessHttpApi
+      DomainName: !Ref DomainName
+      Stage: !Ref ServerlessHttpApiApiGatewayDefaultStage
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  CustomDomainUrl:
+    Description: Custom domain URL
+    Value: !Sub "https://${DomainName}/"
+  ApiGatewayDomainTarget:
+    Description: CNAME target for Cloudflare DNS
+    Value: !GetAtt ApiDomainName.RegionalDomainName
