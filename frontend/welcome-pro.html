@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Pro — Colette DN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="welcome-pro-page">
+        <div class="welcome-content">
+            <div class="welcome-icon">
+                <span class="welcome-star">&#10022;</span>
+                <div class="welcome-sparkles">
+                    <span class="sparkle"></span>
+                    <span class="sparkle"></span>
+                    <span class="sparkle"></span>
+                    <span class="sparkle"></span>
+                </div>
+            </div>
+
+            <h1 class="welcome-title">Welcome to Pro</h1>
+            <p class="welcome-subtitle">Your upgrade is now active</p>
+
+            <div class="welcome-features">
+                <div class="welcome-feature">
+                    <span class="welcome-feature-icon">&infin;</span>
+                    <div class="welcome-feature-text">
+                        <span class="welcome-feature-title">Unlimited searches</span>
+                        <span class="welcome-feature-desc">No more daily limits</span>
+                    </div>
+                </div>
+                <div class="welcome-feature">
+                    <span class="welcome-feature-icon">&#9889;</span>
+                    <div class="welcome-feature-text">
+                        <span class="welcome-feature-title">No rate limit waits</span>
+                        <span class="welcome-feature-desc">Search as fast as you want</span>
+                    </div>
+                </div>
+                <div class="welcome-feature">
+                    <span class="welcome-feature-icon">&#10022;</span>
+                    <div class="welcome-feature-text">
+                        <span class="welcome-feature-title">Priority access</span>
+                        <span class="welcome-feature-desc">First in line during high traffic</span>
+                    </div>
+                </div>
+            </div>
+
+            <a href="/" class="welcome-cta">Start Searching</a>
+
+            <p class="welcome-footer">
+                Thank you for supporting Colette DN
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Refresh user data to ensure Pro status is reflected
+        const authToken = localStorage.getItem('authToken');
+        if (authToken) {
+            fetch('/api/user/me', {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            }).catch(() => {});
+        }
+    </script>
+</body>
+</html>

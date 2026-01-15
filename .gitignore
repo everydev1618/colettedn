@@ -34,3 +34,4 @@ cache.db
 .aws-sam/
 cmd/lambda/bootstrap
 cmd/lambda/frontend/
+api

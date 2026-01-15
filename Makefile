@@ -13,14 +13,12 @@ clean:
 	rm -rf bin/ .aws-sam/
 
 # Lambda build (used by SAM)
-build-lambda:
-	cp -r frontend cmd/lambda/
-	cd cmd/lambda && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o bootstrap .
-	mv cmd/lambda/bootstrap $(ARTIFACTS_DIR)/
-	rm -rf cmd/lambda/frontend
+build-ColetteDNFunction:
+	cp -r frontend $(ARTIFACTS_DIR)/
+	cd cmd/lambda && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o $(ARTIFACTS_DIR)/bootstrap .
 
 # SAM local testing
-sam-local: build-lambda
+sam-local:
 	sam local start-api
 
 # Deploy to AWS
