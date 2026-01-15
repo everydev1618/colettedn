@@ -10,6 +10,25 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <!-- Maintenance Overlay -->
+    <div id="maintenance-overlay" class="maintenance-overlay" hidden>
+        <div class="maintenance-content">
+            <div class="maintenance-icon">✦</div>
+            <h2 class="maintenance-title">Taking a breather</h2>
+            <p class="maintenance-text">
+                Colette is temporarily resting to ensure<br>
+                the best experience for everyone.
+            </p>
+            <div class="maintenance-timer">
+                <span class="timer-label">Please return in</span>
+                <span class="timer-value" id="maintenance-countdown">15:00</span>
+            </div>
+            <button class="maintenance-retry" onclick="location.reload()">
+                Try Again
+            </button>
+        </div>
+    </div>
+
     <div class="app-layout">
         <!-- Top Search Bar -->
         <header class="top-bar">

@@ -12,6 +12,7 @@ import (
 
 	"github.com/everydev1618/colettedn/internal/cache"
 	"github.com/everydev1618/colettedn/internal/generator"
+	"github.com/everydev1618/colettedn/internal/killswitch"
 	"github.com/everydev1618/colettedn/internal/namecheap"
 	"github.com/everydev1618/colettedn/internal/ratelimit"
 )
@@ -21,6 +22,7 @@ type Handler struct {
 	nc      *namecheap.Client
 	cache   cache.Cacher
 	limiter *ratelimit.Limiter
+	ks      *killswitch.KillSwitch
 }
 
 func New() *Handler {
@@ -45,6 +47,11 @@ func New() *Handler {
 		PerMinute:  perMinute,
 		DailyLimit: dailyLimit,
 	})
+
+	// Initialize kill switch (only in Lambda environment)
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		h.ks = killswitch.New()
+	}
 
 	// Initialize Namecheap client if configured
 	if os.Getenv("NAMECHEAP_API_KEY") != "" {
@@ -114,6 +121,14 @@ type CheckResponse struct {
 }
 
 func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
+	// Kill switch check
+	if h.ks != nil && h.ks.IsDisabled() {
+		writeJSON(w, http.StatusServiceUnavailable, GenerateResponse{
+			Error: "Service temporarily unavailable. Please try again later.",
+		})
+		return
+	}
+
 	// Rate limiting
 	ip := getClientIP(r)
 	rl := h.limiter.Allow(ip)
@@ -121,6 +136,11 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		// Log rate limit violations for monitoring/alerting
 		log.Printf("[RATE_LIMIT] ip=%s reason=%s daily_used=%d minute_used=%d",
 			ip, rl.Reason, rl.DailyUsed, rl.MinuteUsed)
+
+		// Force refresh kill switch on rate limit violations (faster response to attacks)
+		if h.ks != nil {
+			h.ks.ForceRefresh()
+		}
 
 		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", rl.RetryAfter.Seconds()))
 		w.Header().Set("X-RateLimit-Remaining", "0")
@@ -189,8 +209,9 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 
 		// Check availability (if Namecheap is configured)
 		availabilityMap := make(map[string]*availabilityInfo)
+		var availabilityErr error
 		if h.nc != nil && len(newDomains) > 0 {
-			availabilityMap = h.checkDomainsAvailability(r, newDomains)
+			availabilityMap, availabilityErr = h.checkDomainsAvailability(r, newDomains)
 		}
 
 		// Sort domains into available/taken
@@ -214,8 +235,8 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 						// Taken - add to exclusion list for next round
 						takenDomains = append(takenDomains, d)
 					}
-				} else if h.nc == nil {
-					// No availability checker - include all as unverified
+				} else if h.nc == nil || availabilityErr != nil {
+					// No availability checker OR API failed - include as unverified
 					result := DomainResult{Name: d}
 					availableByCategory[cat] = append(availableByCategory[cat], result)
 				}
@@ -223,7 +244,8 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check if we have enough available domains in each category
-		if hasEnoughPerCategory(availableByCategory) || h.nc == nil {
+		// Also stop if Namecheap API is failing (no point in multiple rounds)
+		if hasEnoughPerCategory(availableByCategory) || h.nc == nil || availabilityErr != nil {
 			break
 		}
 	}
@@ -242,7 +264,7 @@ type availabilityInfo struct {
 	checkedAt *int64
 }
 
-func (h *Handler) checkDomainsAvailability(r *http.Request, domains []string) map[string]*availabilityInfo {
+func (h *Handler) checkDomainsAvailability(r *http.Request, domains []string) (map[string]*availabilityInfo, error) {
 	result := make(map[string]*availabilityInfo)
 
 	// Check cache first
@@ -267,26 +289,28 @@ func (h *Handler) checkDomainsAvailability(r *http.Request, domains []string) ma
 	// Fetch uncached from API
 	if len(uncached) > 0 {
 		apiResults, err := h.nc.CheckAvailability(r.Context(), uncached)
-		if err == nil {
-			now := time.Now().Unix()
-			for _, ar := range apiResults {
-				key := strings.ToLower(ar.Domain)
-				result[key] = &availabilityInfo{
-					available: ar.Available,
-					isPremium: ar.IsPremium,
-					price:     ar.Price,
-					fromCache: false,
-					checkedAt: &now,
-				}
-				// Cache the result
-				if h.cache != nil {
-					h.cache.Set(key, ar.Available, ar.IsPremium, ar.Price)
-				}
+		if err != nil {
+			log.Printf("[NAMECHEAP_ERROR] Failed to check %d domains: %v", len(uncached), err)
+			return result, err
+		}
+		now := time.Now().Unix()
+		for _, ar := range apiResults {
+			key := strings.ToLower(ar.Domain)
+			result[key] = &availabilityInfo{
+				available: ar.Available,
+				isPremium: ar.IsPremium,
+				price:     ar.Price,
+				fromCache: false,
+				checkedAt: &now,
+			}
+			// Cache the result
+			if h.cache != nil {
+				h.cache.Set(key, ar.Available, ar.IsPremium, ar.Price)
 			}
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func countAvailable(categories map[string][]DomainResult) int {

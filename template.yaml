@@ -26,11 +26,144 @@ Parameters:
   NamecheapUsername:
     Type: String
     Description: Namecheap account username
-  NamecheapClientIp:
-    Type: String
-    Description: Whitelisted IP for Namecheap API
 
 Resources:
+  # VPC for Lambda with static outbound IP
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: colettedn-vpc
+
+  # Internet Gateway for public subnet
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: colettedn-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public subnet (for NAT Gateway)
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: colettedn-public
+
+  # Private subnet (for Lambda)
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: colettedn-private
+
+  # Elastic IP for NAT Gateway (THIS IS THE STATIC IP TO WHITELIST)
+  NatEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: colettedn-nat-eip
+
+  # NAT Gateway in public subnet
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: colettedn-nat
+
+  # Route table for public subnet (routes to Internet Gateway)
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: colettedn-public-rt
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Route table for private subnet (routes to NAT Gateway)
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: colettedn-private-rt
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security group for Lambda
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ColetteDN Lambda
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: colettedn-lambda-sg
+
+  # VPC Endpoint for DynamoDB (free, avoids NAT Gateway for DynamoDB calls)
+  DynamoDBEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
   ColetteDNFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -39,17 +172,23 @@ Resources:
       Runtime: provided.al2023
       Architectures:
         - x86_64
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet
       Environment:
         Variables:
           ANTHROPIC_API_KEY: !Ref AnthropicApiKey
           NAMECHEAP_API_USER: !Ref NamecheapApiUser
           NAMECHEAP_API_KEY: !Ref NamecheapApiKey
           NAMECHEAP_USERNAME: !Ref NamecheapUsername
-          NAMECHEAP_CLIENT_IP: !Ref NamecheapClientIp
+          NAMECHEAP_CLIENT_IP: !GetAtt NatEIP.PublicIp
           NAMECHEAP_SANDBOX: "false"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CacheTable
+        - VPCAccessPolicy: {}
       Events:
         Api:
           Type: HttpApi
@@ -113,3 +252,6 @@ Outputs:
   ApiGatewayDomainTarget:
     Description: CNAME target for Cloudflare DNS
     Value: !GetAtt ApiDomainName.RegionalDomainName
+  NamecheapWhitelistIP:
+    Description: Static IP to whitelist in Namecheap API settings
+    Value: !GetAtt NatEIP.PublicIp

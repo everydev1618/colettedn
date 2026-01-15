@@ -59,13 +59,17 @@ jobs:
               AnthropicApiKey=${{ secrets.ANTHROPIC_API_KEY }} \
               NamecheapApiUser=${{ secrets.NAMECHEAP_API_USER }} \
               NamecheapApiKey=${{ secrets.NAMECHEAP_API_KEY }} \
-              NamecheapUsername=${{ secrets.NAMECHEAP_USERNAME }} \
-              NamecheapClientIp=${{ secrets.NAMECHEAP_CLIENT_IP }}
+              NamecheapUsername=${{ secrets.NAMECHEAP_USERNAME }}
 
-      - name: Get API URL
+      - name: Get deployment info
         run: |
           URL=$(aws cloudformation describe-stacks \
             --stack-name ${{ env.STACK_NAME }} \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
             --output text)
+          IP=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`NamecheapWhitelistIP`].OutputValue' \
+            --output text)
           echo "🚀 Deployed to: $URL"
+          echo "🔒 Namecheap whitelist IP: $IP"

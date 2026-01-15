@@ -6,6 +6,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsEl = document.getElementById('results');
     const emptyState = document.getElementById('empty-state');
     const tldStyleInput = document.getElementById('tld-style');
+    const maintenanceOverlay = document.getElementById('maintenance-overlay');
+    const maintenanceCountdown = document.getElementById('maintenance-countdown');
+
+    // Maintenance mode handling
+    let maintenanceTimer = null;
+
+    function showMaintenanceMode() {
+        maintenanceOverlay.hidden = false;
+        document.body.style.overflow = 'hidden';
+
+        // Start 15-minute countdown
+        let remaining = 15 * 60; // 15 minutes in seconds
+
+        function updateCountdown() {
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            maintenanceCountdown.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+            if (remaining > 0) {
+                remaining--;
+            }
+        }
+
+        updateCountdown();
+        if (maintenanceTimer) clearInterval(maintenanceTimer);
+        maintenanceTimer = setInterval(updateCountdown, 1000);
+    }
+
+    function hideMaintenanceMode() {
+        maintenanceOverlay.hidden = true;
+        document.body.style.overflow = '';
+        if (maintenanceTimer) {
+            clearInterval(maintenanceTimer);
+            maintenanceTimer = null;
+        }
+    }
 
     // TLD toggle handlers
     document.querySelectorAll('.tld-toggle').forEach(btn => {
@@ -65,10 +101,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ description, tldStyle }),
             });
 
+            // Handle service unavailable (kill switch active)
+            if (response.status === 503) {
+                showMaintenanceMode();
+                return;
+            }
+
             const data = await response.json();
 
-            if (data.error) {
-                showError(data.error);
+            // Also check for 429 (rate limited) message that might indicate maintenance
+            if (response.status === 429 || data.error) {
+                if (response.status === 429) {
+                    showError(data.error || 'Too many requests. Please wait a moment.');
+                } else {
+                    showError(data.error);
+                }
                 return;
             }
 
