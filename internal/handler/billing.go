@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/everydev1618/colettedn/internal/analytics"
 	"github.com/everydev1618/colettedn/internal/auth"
@@ -146,7 +147,8 @@ func (h *BillingHandler) Webhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify signature
-	signature := r.Header.Get("Stripe-Signature")
+	// Go's HTTP library splits comma-separated header values, so we need to rejoin them
+	signature := strings.Join(r.Header.Values("Stripe-Signature"), ",")
 	if err := h.stripeClient.VerifyWebhookSignature(payload, signature); err != nil {
 		log.Printf("[WEBHOOK_ERROR] Invalid signature: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
