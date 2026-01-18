@@ -890,7 +890,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>.com</span><span>.io</span><span>.co</span><span>.dev</span><span>.app</span><span>.ai</span>
                 </div>
             </div>`;
-        emptyState.hidden = true;
         resultsEl.hidden = false;
 
         try {
