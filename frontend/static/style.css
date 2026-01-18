@@ -922,6 +922,20 @@ body {
     opacity: 0.5;
 }
 
+.app-footer .heart {
+    color: #e25555;
+}
+
+.app-footer a {
+    color: var(--cream-dim);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.app-footer a:hover {
+    color: var(--cream);
+}
+
 /* ==========================================================================
    Animations
    ========================================================================== */
