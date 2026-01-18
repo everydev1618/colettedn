@@ -177,10 +177,8 @@ Resources:
 
   ColetteDNFunction:
     Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: makefile
     Properties:
-      CodeUri: .
+      CodeUri: ColetteDNFunction
       Handler: bootstrap
       Runtime: provided.al2023
       Architectures:
