@@ -58,7 +58,9 @@ func main() {
 	// API routes
 	mux.HandleFunc("POST /api/generate", h.GenerateDomains)
 	mux.HandleFunc("POST /api/check", h.CheckAvailability)
+	mux.HandleFunc("POST /api/check-com", h.CheckComSite)
 	mux.HandleFunc("GET /api/health", h.Health)
+	mux.HandleFunc("GET /api/stats", h.Stats)
 	mux.HandleFunc("POST /api/track/affiliate", h.TrackAffiliateClick)
 
 	// Auth routes

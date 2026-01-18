@@ -8,17 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
-    <script>
-        // Prevent flash of landing page for logged-in users
-        if (localStorage.getItem('authToken')) {
-            document.documentElement.classList.add('has-token');
-        }
-    </script>
-    <style>
-        /* Hide hero immediately if user has token, show app layout instead */
-        .has-token #hero-state { display: none !important; }
-        .has-token .app-layout { display: flex !important; }
-    </style>
 </head>
 <body>
     <!-- Login Modal -->
@@ -139,78 +128,7 @@
         </div>
     </div>
 
-    <!-- Hero State (initial landing page) -->
-    <div id="hero-state" class="hero-state">
-        <div class="hero-auth">
-            <button id="hero-sign-in-btn" class="hero-sign-in-btn">Sign in</button>
-            <div id="hero-user-dropdown" class="hero-user-dropdown" hidden>
-                <button id="hero-user-btn" class="hero-user-btn">
-                    <span id="hero-user-email" class="hero-user-email"></span>
-                    <span class="dropdown-arrow">▼</span>
-                </button>
-                <div id="hero-dropdown-menu" class="hero-dropdown-menu" hidden>
-                    <div id="hero-plan-info" class="dropdown-plan-info">
-                        <span id="hero-plan-name" class="plan-name">Free</span>
-                        <span id="hero-plan-detail" class="plan-detail">3 searches/day</span>
-                    </div>
-                    <div class="dropdown-divider"></div>
-                    <button id="hero-search-console-btn" class="dropdown-item">
-                        <span class="dropdown-icon">⌕</span> Search Console
-                    </button>
-                    <button id="hero-favorites-btn" class="dropdown-item">
-                        <span class="dropdown-icon">♥</span> Favorites
-                    </button>
-                    <button id="hero-history-btn" class="dropdown-item">
-                        <span class="dropdown-icon">↺</span> History
-                    </button>
-                    <button id="hero-upgrade-btn" class="dropdown-item dropdown-upgrade" hidden>
-                        <span class="dropdown-icon">✦</span> Upgrade to Pro
-                    </button>
-                    <button id="hero-manage-btn" class="dropdown-item" hidden>
-                        <span class="dropdown-icon">⚙</span> Manage subscription
-                    </button>
-                    <button id="hero-admin-btn" class="dropdown-item" hidden>
-                        <span class="dropdown-icon">⌘</span> Admin
-                    </button>
-                    <button id="hero-logout-btn" class="dropdown-item">
-                        <span class="dropdown-icon">→</span> Sign out
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="hero-content">
-            <div class="hero-logo">
-                <span class="hero-mark">✦</span>
-                <h1 class="hero-title">Colette</h1>
-                <span class="hero-suffix">DN</span>
-            </div>
-            <p class="hero-tagline">Domain Name Atelier</p>
-
-            <form id="hero-form" class="hero-form">
-                <textarea
-                    id="hero-description"
-                    class="hero-input"
-                    rows="2"
-                    placeholder="Describe your project, or enter a domain idea like tonycto.com"
-                    required
-                ></textarea>
-
-                <div class="hero-options">
-                    <button type="button" class="hero-tld-toggle active" data-value="traditional">.com .co .net</button>
-                    <button type="button" class="hero-tld-toggle" data-value="creative">.io .ai .app .dev</button>
-                </div>
-
-                <button type="submit" class="hero-submit">
-                    <span class="hero-btn-text">Generate Names</span>
-                    <span class="hero-btn-loading" hidden>
-                        <span class="spinner"></span>
-                    </span>
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <div class="app-layout" hidden>
+    <div class="app-layout">
         <!-- Top Search Bar -->
         <header class="top-bar">
             <a href="#" class="logo" id="logo-home">
@@ -284,8 +202,43 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <div id="empty-state" class="empty-state">
-                <p>Describe your project to discover<br>the perfect domain name</p>
+            <!-- Welcome Content (shown when no results) -->
+            <div id="welcome-content" class="welcome-content">
+                <div class="welcome-hero">
+                    <span class="welcome-badge">✦ AI-POWERED DOMAIN FINDER</span>
+                    <h1 class="welcome-title">The first domain search built for the<br>side-hustle generation</h1>
+                    <p class="welcome-subtitle">
+                        Describe your project. Get <em>verified available</em> domains.<br>
+                        Not suggestions. Not wishful thinking. Domains you can actually register.
+                    </p>
+                    <button class="welcome-cta" id="get-started-btn">Get Started</button>
+                </div>
+
+                <div class="welcome-features">
+                    <div class="feature">
+                        <div class="feature-icon">✦</div>
+                        <div class="feature-title">AI-Powered</div>
+                        <div class="feature-desc">Creative, brandable names generated from your idea</div>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">✓</div>
+                        <div class="feature-title">Verified Available</div>
+                        <div class="feature-desc">Every domain is checked live. No disappointments.</div>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">⚡</div>
+                        <div class="feature-title">30 Seconds</div>
+                        <div class="feature-desc">From idea to registrable domain, instantly</div>
+                    </div>
+                </div>
+
+                <div class="welcome-stats">
+                    <span class="stat"><strong id="stat-domains">0</strong> domains found</span>
+                    <span class="stat-divider">•</span>
+                    <span class="stat"><strong>100%</strong> verified available</span>
+                    <span class="stat-divider">•</span>
+                    <span class="stat">Built for <strong>creators</strong></span>
+                </div>
             </div>
 
             <div id="results" class="results" hidden></div>
@@ -322,6 +275,26 @@
         <footer class="app-footer">
             <p>Powered by Claude</p>
         </footer>
+    </div>
+
+    <!-- Onboarding Tour Overlay -->
+    <div id="onboarding-tour" class="tour-overlay" hidden>
+        <div class="tour-backdrop"></div>
+        <div class="tour-spotlight" id="tour-spotlight"></div>
+        <div class="tour-tooltip" id="tour-tooltip">
+            <div class="tour-step" data-step="1">
+                <p class="tour-text">Describe your project or idea here — be creative!</p>
+                <button class="tour-next">Next</button>
+            </div>
+            <div class="tour-step" data-step="2" hidden>
+                <p class="tour-text">Choose your preferred domain extensions</p>
+                <button class="tour-next">Next</button>
+            </div>
+            <div class="tour-step" data-step="3" hidden>
+                <p class="tour-text">Hit Generate and watch the magic happen</p>
+                <button class="tour-done">Let's Go!</button>
+            </div>
+        </div>
     </div>
 
     <script src="/static/app.js"></script>

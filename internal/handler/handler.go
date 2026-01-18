@@ -518,6 +518,27 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// Stats returns public statistics for the landing page
+type StatsResponse struct {
+	TotalSearches int64 `json:"totalSearches"`
+	DomainsFound  int64 `json:"domainsFound"`
+}
+
+const avgDomainsPerSearch = 18 // ~4 categories × 4-5 domains each
+
+func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
+	totalSearches, err := analytics.Get().GetTotalCount(r.Context(), "searches")
+	if err != nil {
+		log.Printf("[STATS] Failed to get total searches: %v", err)
+		totalSearches = 0
+	}
+
+	writeJSON(w, http.StatusOK, StatsResponse{
+		TotalSearches: totalSearches,
+		DomainsFound:  totalSearches * avgDomainsPerSearch,
+	})
+}
+
 // TrackAffiliateClick tracks a click to Namecheap affiliate link
 func (h *Handler) TrackAffiliateClick(w http.ResponseWriter, r *http.Request) {
 	var req struct {

@@ -16,19 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnText = submitBtn.querySelector('.btn-text');
     const btnLoading = submitBtn.querySelector('.btn-loading');
     const resultsEl = document.getElementById('results');
-    const emptyState = document.getElementById('empty-state');
+    const welcomeContent = document.getElementById('welcome-content');
     const tldStyleInput = document.getElementById('tld-style');
     const maintenanceOverlay = document.getElementById('maintenance-overlay');
     const maintenanceCountdown = document.getElementById('maintenance-countdown');
 
-    // Hero state elements
-    const heroState = document.getElementById('hero-state');
-    const heroForm = document.getElementById('hero-form');
-    const heroDescription = document.getElementById('hero-description');
-    const heroSubmitBtn = heroForm.querySelector('.hero-submit');
-    const heroBtnText = heroSubmitBtn.querySelector('.hero-btn-text');
-    const heroBtnLoading = heroSubmitBtn.querySelector('.hero-btn-loading');
-    const appLayout = document.querySelector('.app-layout');
+    // Tour elements
+    const tourOverlay = document.getElementById('onboarding-tour');
+    const tourSpotlight = document.getElementById('tour-spotlight');
+    const tourTooltip = document.getElementById('tour-tooltip');
+    const getStartedBtn = document.getElementById('get-started-btn');
+    const statDomainsEl = document.getElementById('stat-domains');
 
     // Auth elements
     const loginModal = document.getElementById('login-modal');
@@ -58,17 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const favoritesList = document.getElementById('favorites-list');
     const favoritesClose = document.getElementById('favorites-close');
 
-    // Hero auth elements
-    const heroSignInBtn = document.getElementById('hero-sign-in-btn');
-    const heroUserDropdown = document.getElementById('hero-user-dropdown');
-    const heroUserBtn = document.getElementById('hero-user-btn');
-    const heroUserEmail = document.getElementById('hero-user-email');
-    const heroDropdownMenu = document.getElementById('hero-dropdown-menu');
-    const heroSearchConsoleBtn = document.getElementById('hero-search-console-btn');
-    const heroFavoritesBtn = document.getElementById('hero-favorites-btn');
-    const heroHistoryBtn = document.getElementById('hero-history-btn');
-    const heroLogoutBtn = document.getElementById('hero-logout-btn');
-
     // History view elements
     const historyView = document.getElementById('history-view');
     const historyList = document.getElementById('history-list');
@@ -86,19 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Upgrade/manage buttons in dropdowns
     const upgradeMenuBtn = document.getElementById('upgrade-menu-btn');
     const manageBtn = document.getElementById('manage-btn');
-    const heroUpgradeBtn = document.getElementById('hero-upgrade-btn');
-    const heroManageBtn = document.getElementById('hero-manage-btn');
 
     // Admin buttons
     const adminBtn = document.getElementById('admin-btn');
-    const heroAdminBtn = document.getElementById('hero-admin-btn');
     const ADMIN_EMAIL = 'etdebruin@gmail.com';
 
     // Plan info elements
     const planName = document.getElementById('plan-name');
     const planDetail = document.getElementById('plan-detail');
-    const heroPlanName = document.getElementById('hero-plan-name');
-    const heroPlanDetail = document.getElementById('hero-plan-detail');
 
     // Owned modal elements
     const ownedModal = document.getElementById('owned-modal');
@@ -139,10 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateAuthUI();
                 await fetchFavorites();
                 await fetchOwnedDomains();
-
-                // Always go to app layout when logged in
-                heroState.hidden = true;
-                appLayout.hidden = false;
             } else {
                 // Invalid token
                 logout();
@@ -196,47 +174,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `<span class="user-email-text">${escapeHtml(currentUser.email)}</span><span class="pro-badge">Pro</span>`
                 : `<span class="user-email-text">${escapeHtml(currentUser.email)}</span>`;
 
-            // Hero (landing page)
-            heroSignInBtn.hidden = true;
-            heroUserDropdown.hidden = false;
-            heroUserEmail.innerHTML = isPro
-                ? `<span class="user-email-text">${escapeHtml(currentUser.email)}</span><span class="pro-badge">Pro</span>`
-                : `<span class="user-email-text">${escapeHtml(currentUser.email)}</span>`;
-
-            // Update plan info in dropdowns
+            // Update plan info in dropdown
             if (isPro) {
                 planName.textContent = 'Pro';
                 planName.classList.add('plan-pro');
                 planDetail.textContent = 'Unlimited searches';
-                heroPlanName.textContent = 'Pro';
-                heroPlanName.classList.add('plan-pro');
-                heroPlanDetail.textContent = 'Unlimited searches';
             } else {
                 planName.textContent = 'Free';
                 planName.classList.remove('plan-pro');
                 planDetail.textContent = '3 searches/day';
-                heroPlanName.textContent = 'Free';
-                heroPlanName.classList.remove('plan-pro');
-                heroPlanDetail.textContent = '3 searches/day';
             }
 
             // Show upgrade or manage button based on tier
             upgradeMenuBtn.hidden = isPro;
             manageBtn.hidden = !isPro;
-            heroUpgradeBtn.hidden = isPro;
-            heroManageBtn.hidden = !isPro;
 
             // Show admin button only for admin email
             const isAdmin = currentUser.email === ADMIN_EMAIL;
             adminBtn.hidden = !isAdmin;
-            heroAdminBtn.hidden = !isAdmin;
         } else {
             // Header (app layout)
             signInBtn.hidden = false;
             userDropdown.hidden = true;
-            // Hero (landing page)
-            heroSignInBtn.hidden = false;
-            heroUserDropdown.hidden = true;
         }
     }
 
@@ -246,13 +205,11 @@ document.addEventListener('DOMContentLoaded', () => {
         userFavorites.clear();
         userOwnedDomains.clear();
         localStorage.removeItem('authToken');
-        document.documentElement.classList.remove('has-token');
         updateAuthUI();
         // POST to logout endpoint (fire and forget)
         fetch('/api/auth/logout', { method: 'POST', headers: getAuthHeaders() }).catch(() => {});
-        // Go back to landing page
-        appLayout.hidden = true;
-        heroState.hidden = false;
+        // Show welcome content
+        showWelcomeContent();
     }
 
     function getAuthHeaders() {
@@ -280,46 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     signInBtn.addEventListener('click', openLoginModal);
-    heroSignInBtn.addEventListener('click', openLoginModal);
-
-    // Hero dropdown handlers
-    heroUserBtn.addEventListener('click', () => {
-        const isOpen = !heroDropdownMenu.hidden;
-        heroDropdownMenu.hidden = isOpen;
-        heroUserDropdown.classList.toggle('open', !isOpen);
-    });
-
-    heroSearchConsoleBtn.addEventListener('click', () => {
-        heroDropdownMenu.hidden = true;
-        heroUserDropdown.classList.remove('open');
-        // Transition to app layout (search console)
-        heroState.hidden = true;
-        appLayout.hidden = false;
-    });
-
-    heroFavoritesBtn.addEventListener('click', () => {
-        heroDropdownMenu.hidden = true;
-        heroUserDropdown.classList.remove('open');
-        // Transition to app layout and show favorites
-        heroState.hidden = true;
-        appLayout.hidden = false;
-        showFavoritesView();
-    });
-
-    heroHistoryBtn.addEventListener('click', () => {
-        heroDropdownMenu.hidden = true;
-        heroUserDropdown.classList.remove('open');
-        // Transition to app layout and show history
-        heroState.hidden = true;
-        appLayout.hidden = false;
-        showHistoryView();
-    });
-
-    heroLogoutBtn.addEventListener('click', () => {
-        heroDropdownMenu.hidden = true;
-        heroUserDropdown.classList.remove('open');
-        logout();
-    });
 
     loginClose.addEventListener('click', () => {
         loginModal.hidden = true;
@@ -418,16 +335,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Upgrade button in dropdowns
+    // Upgrade button in dropdown
     upgradeMenuBtn.addEventListener('click', () => {
         dropdownMenu.hidden = true;
         userDropdown.classList.remove('open');
-        openUpgradeModal();
-    });
-
-    heroUpgradeBtn.addEventListener('click', () => {
-        heroDropdownMenu.hidden = true;
-        heroUserDropdown.classList.remove('open');
         openUpgradeModal();
     });
 
@@ -456,22 +367,10 @@ document.addEventListener('DOMContentLoaded', () => {
         openManageSubscription();
     });
 
-    heroManageBtn.addEventListener('click', () => {
-        heroDropdownMenu.hidden = true;
-        heroUserDropdown.classList.remove('open');
-        openManageSubscription();
-    });
-
-    // Admin button handlers
+    // Admin button handler
     adminBtn.addEventListener('click', () => {
         dropdownMenu.hidden = true;
         userDropdown.classList.remove('open');
-        window.location.href = '/admin';
-    });
-
-    heroAdminBtn.addEventListener('click', () => {
-        heroDropdownMenu.hidden = true;
-        heroUserDropdown.classList.remove('open');
         window.location.href = '/admin';
     });
 
@@ -566,15 +465,11 @@ document.addEventListener('DOMContentLoaded', () => {
         userDropdown.classList.toggle('open', !isOpen);
     });
 
-    // Close dropdowns when clicking outside
+    // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
         if (!userDropdown.contains(e.target)) {
             dropdownMenu.hidden = true;
             userDropdown.classList.remove('open');
-        }
-        if (!heroUserDropdown.contains(e.target)) {
-            heroDropdownMenu.hidden = true;
-            heroUserDropdown.classList.remove('open');
         }
     });
 
@@ -582,7 +477,12 @@ document.addEventListener('DOMContentLoaded', () => {
         dropdownMenu.hidden = true;
         userDropdown.classList.remove('open');
         favoritesView.hidden = true;
-        resultsSection.hidden = false;
+        historyView.hidden = true;
+        if (Object.keys(categories).length > 0) {
+            resultsEl.hidden = false;
+        } else {
+            welcomeContent.hidden = false;
+        }
     });
 
     favoritesBtn.addEventListener('click', () => {
@@ -605,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Favorites view handlers
     async function showFavoritesView() {
-        emptyState.hidden = true;
+        welcomeContent.hidden = true;
         resultsEl.hidden = true;
         historyView.hidden = true;
         favoritesView.hidden = false;
@@ -618,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Object.keys(categories).length > 0) {
             resultsEl.hidden = false;
         } else {
-            emptyState.hidden = false;
+            welcomeContent.hidden = false;
         }
     }
 
@@ -626,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // History view handlers
     async function showHistoryView() {
-        emptyState.hidden = true;
+        welcomeContent.hidden = true;
         resultsEl.hidden = true;
         favoritesView.hidden = true;
         historyView.hidden = false;
@@ -639,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Object.keys(categories).length > 0) {
             resultsEl.hidden = false;
         } else {
-            emptyState.hidden = false;
+            welcomeContent.hidden = false;
         }
     }
 
@@ -931,47 +831,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Track current TLD style for hero form
-    let heroTldStyle = 'traditional';
-
-    // Logo click - stay on search console
+    // Logo click - show welcome content
     document.getElementById('logo-home').addEventListener('click', (e) => {
         e.preventDefault();
-    });
-
-    // Hero TLD toggle handlers
-    document.querySelectorAll('.hero-tld-toggle').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.hero-tld-toggle').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            heroTldStyle = btn.dataset.value;
-        });
-    });
-
-    // Hero form submission - transition to results view
-    heroForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const description = heroDescription.value.trim();
-        if (!description) {
-            shakeElement(heroDescription);
-            return;
-        }
-
-        // Sync values to main form
-        document.getElementById('description').value = description;
-        tldStyleInput.value = heroTldStyle;
-        // Sync the TLD toggle UI in the header
-        document.querySelectorAll('.tld-toggle').forEach(b => {
-            b.classList.toggle('active', b.dataset.value === heroTldStyle);
-        });
-
-        // Transition to app layout
-        heroState.hidden = true;
-        appLayout.hidden = false;
-
-        // Trigger the main form submit
-        form.dispatchEvent(new Event('submit'));
+        showWelcomeContent();
     });
 
     // TLD toggle handlers
@@ -997,9 +860,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Hide favorites/history view if showing
+        // Hide favorites/history/welcome view if showing
         favoritesView.hidden = true;
         historyView.hidden = true;
+        welcomeContent.hidden = true;
 
         // Show loading state
         submitBtn.disabled = true;
@@ -1435,7 +1299,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showError(message) {
         resultsEl.innerHTML = `<p class="error-message">${escapeHtml(message)}</p>`;
-        emptyState.hidden = true;
+        welcomeContent.hidden = true;
         resultsEl.hidden = false;
     }
 
@@ -1460,4 +1324,129 @@ document.addEventListener('DOMContentLoaded', () => {
         40%, 80% { transform: translateX(4px); }
     }`;
     document.head.appendChild(style);
+
+    // =========================================================================
+    // Welcome Content & Onboarding Tour
+    // =========================================================================
+
+    function showWelcomeContent() {
+        resultsEl.hidden = true;
+        favoritesView.hidden = true;
+        historyView.hidden = true;
+        welcomeContent.hidden = false;
+    }
+
+    // Get Started button - start onboarding tour
+    if (getStartedBtn) {
+        getStartedBtn.addEventListener('click', startTour);
+    }
+
+    let currentTourStep = 1;
+    const tourTargets = [
+        { el: () => document.getElementById('description'), padding: 8 },
+        { el: () => document.querySelector('.search-options'), padding: 8 },
+        { el: () => document.getElementById('submit-btn'), padding: 8 }
+    ];
+
+    function startTour() {
+        currentTourStep = 1;
+        tourOverlay.hidden = false;
+        showTourStep(currentTourStep);
+    }
+
+    function showTourStep(step) {
+        // Hide all steps
+        tourTooltip.querySelectorAll('.tour-step').forEach(s => s.hidden = true);
+        // Show current step
+        const stepEl = tourTooltip.querySelector(`[data-step="${step}"]`);
+        if (stepEl) stepEl.hidden = false;
+
+        // Position spotlight and tooltip
+        const target = tourTargets[step - 1];
+        if (target && target.el()) {
+            const el = target.el();
+            const rect = el.getBoundingClientRect();
+            const padding = target.padding || 4;
+
+            // Position spotlight
+            tourSpotlight.style.top = (rect.top - padding) + 'px';
+            tourSpotlight.style.left = (rect.left - padding) + 'px';
+            tourSpotlight.style.width = (rect.width + padding * 2) + 'px';
+            tourSpotlight.style.height = (rect.height + padding * 2) + 'px';
+
+            // Position tooltip below the spotlight
+            tourTooltip.style.top = (rect.bottom + padding + 12) + 'px';
+            tourTooltip.style.left = Math.max(16, Math.min(rect.left, window.innerWidth - 320)) + 'px';
+        }
+    }
+
+    function nextTourStep() {
+        currentTourStep++;
+        if (currentTourStep > tourTargets.length) {
+            endTour();
+        } else {
+            showTourStep(currentTourStep);
+        }
+    }
+
+    function endTour() {
+        tourOverlay.hidden = true;
+        // Focus the search input
+        const descInput = document.getElementById('description');
+        if (descInput) {
+            descInput.focus();
+        }
+    }
+
+    // Tour button handlers
+    tourTooltip.querySelectorAll('.tour-next').forEach(btn => {
+        btn.addEventListener('click', nextTourStep);
+    });
+
+    tourTooltip.querySelectorAll('.tour-done').forEach(btn => {
+        btn.addEventListener('click', endTour);
+    });
+
+    // Close tour on backdrop click
+    tourOverlay.querySelector('.tour-backdrop').addEventListener('click', endTour);
+
+    // Fetch public stats on page load
+    async function fetchStats() {
+        try {
+            const response = await fetch('/api/stats');
+            if (response.ok) {
+                const data = await response.json();
+                if (statDomainsEl && data.domainsFound) {
+                    // Animate the counter
+                    animateCounter(statDomainsEl, data.domainsFound);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch stats:', err);
+        }
+    }
+
+    function animateCounter(el, target) {
+        const duration = 1000;
+        const start = 0;
+        const startTime = performance.now();
+
+        function update(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease out
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = Math.round(start + (target - start) * eased);
+            el.textContent = current.toLocaleString();
+
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            }
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    // Initialize stats on page load
+    fetchStats();
 });
