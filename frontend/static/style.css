@@ -2569,3 +2569,483 @@ body {
     z-index: 10001;
     background: var(--bg-bar) !important;
 }
+
+/* ==========================================================================
+   Mobile Responsive Overhaul
+   ========================================================================== */
+
+/* Small phones (375px and below) */
+@media (max-width: 375px) {
+    html {
+        font-size: 14px;
+    }
+
+    .hero-title {
+        font-size: 2.5rem;
+    }
+
+    .main-content .welcome-title {
+        font-size: 1.5rem;
+    }
+
+    .domain-name {
+        font-size: 0.75rem;
+    }
+
+    .modal-content {
+        padding: 2rem 1.25rem;
+    }
+}
+
+/* Mobile phones (up to 600px) */
+@media (max-width: 600px) {
+    /* Top Bar - Complete mobile redesign */
+    .top-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        gap: 0.75rem;
+    }
+
+    .top-bar .logo {
+        display: none; /* Hide in header on mobile, show in hero only */
+    }
+
+    .search-form {
+        flex-direction: column;
+        width: 100%;
+        gap: 0.75rem;
+    }
+
+    .search-input {
+        width: 100%;
+        min-width: unset;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+    }
+
+    .search-options {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .tld-toggle {
+        flex: 1;
+        padding: 0.6rem 0.5rem;
+        font-size: 0.7rem;
+        text-align: center;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 0.85rem 1.5rem;
+        font-size: 0.85rem;
+    }
+
+    .user-menu {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        margin-left: 0;
+    }
+
+    .sign-in-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.7rem;
+    }
+
+    .user-btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.7rem;
+    }
+
+    .user-email {
+        max-width: 100px;
+    }
+
+    /* Main Content */
+    .main-content {
+        padding: 1.5rem 1rem;
+    }
+
+    /* Welcome/Landing Section */
+    .main-content > .welcome-content {
+        padding: 1rem 0;
+    }
+
+    .welcome-hero {
+        margin-bottom: 2rem;
+    }
+
+    .welcome-badge {
+        font-size: 0.6rem;
+        letter-spacing: 0.1em;
+    }
+
+    .main-content .welcome-title {
+        font-size: 1.6rem;
+        line-height: 1.35;
+    }
+
+    .main-content .welcome-title br {
+        display: none;
+    }
+
+    .welcome-subtitle {
+        font-size: 0.9rem;
+        line-height: 1.7;
+    }
+
+    .welcome-subtitle br {
+        display: none;
+    }
+
+    .main-content .welcome-cta {
+        width: 100%;
+        padding: 1rem 2rem;
+    }
+
+    /* Features - stack vertically */
+    .main-content > .welcome-content .welcome-features {
+        flex-direction: column !important;
+        gap: 0.75rem;
+    }
+
+    .main-content .welcome-features .feature {
+        width: 100%;
+        padding: 1rem;
+    }
+
+    /* Stats - stack vertically */
+    .welcome-stats {
+        flex-direction: column;
+        gap: 0.4rem;
+        padding-top: 1.5rem;
+    }
+
+    .stat-divider {
+        display: none;
+    }
+
+    /* Results */
+    .results {
+        column-count: 1;
+        column-gap: 0;
+    }
+
+    .category {
+        margin-bottom: 2rem;
+    }
+
+    .category-title {
+        font-size: 1.25rem;
+    }
+
+    /* Domain Cards */
+    .domain-card {
+        flex-wrap: wrap;
+        padding: 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .domain-name {
+        flex: 1 1 100%;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .domain-row {
+        flex: 1 1 100%;
+        justify-content: space-between;
+    }
+
+    .domain-meta {
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+
+    .domain-link {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.6rem;
+        background: rgba(196, 168, 85, 0.1);
+        border-radius: 3px;
+    }
+
+    /* Favorites/History headers */
+    .favorites-header,
+    .history-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .favorites-title,
+    .history-title {
+        font-size: 1.5rem;
+    }
+
+    .favorites-close,
+    .history-close {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* History items */
+    .history-item-header {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .history-item-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .history-search-btn {
+        flex: 1;
+    }
+
+    /* Modals */
+    .modal-content {
+        padding: 2rem 1.5rem;
+        margin: 1rem;
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+    }
+
+    .modal-title {
+        font-size: 1.5rem;
+    }
+
+    /* Footer */
+    .app-footer {
+        padding: 1rem;
+    }
+
+    /* Hero state (initial landing) */
+    .hero-state {
+        padding: 1.5rem 1rem;
+    }
+
+    .hero-auth {
+        top: 1rem;
+        right: 1rem;
+    }
+
+    .hero-sign-in-btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    .hero-content {
+        max-width: 100%;
+    }
+
+    .hero-tagline {
+        font-size: 0.8rem;
+        letter-spacing: 0.1em;
+        margin-bottom: 2rem;
+    }
+
+    .hero-input {
+        font-size: 1rem;
+        padding: 1rem;
+        text-align: left;
+    }
+
+    .hero-options {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .hero-tld-toggle {
+        width: 100%;
+        padding: 0.75rem 1rem;
+    }
+
+    .hero-submit {
+        width: 100%;
+        padding: 1rem 2rem;
+    }
+
+    /* Upgrade modal */
+    .upgrade-features {
+        padding: 1rem;
+    }
+
+    .upgrade-feature {
+        font-size: 0.85rem;
+    }
+
+    .upgrade-price {
+        font-size: 2rem;
+    }
+
+    /* Owned modal */
+    .owned-option {
+        padding: 0.875rem 1rem;
+    }
+
+    .owned-option-text {
+        font-size: 0.9rem;
+    }
+
+    /* Tour/Onboarding */
+    .tour-tooltip {
+        max-width: calc(100vw - 2rem);
+        margin: 0 1rem;
+    }
+
+    /* Searching state */
+    .searching-state {
+        min-height: calc(100vh - 250px);
+    }
+
+    .search-animation {
+        width: 80px;
+        height: 80px;
+    }
+
+    /* Results upgrade CTA */
+    .results-upgrade-cta {
+        flex-direction: column;
+        text-align: center;
+        padding: 1rem;
+        gap: 0.75rem;
+    }
+
+    /* Usage banner */
+    .usage-banner {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.75rem;
+    }
+
+    .usage-upgrade-btn {
+        width: 100%;
+    }
+}
+
+/* Tablet (601px - 900px) */
+@media (min-width: 601px) and (max-width: 900px) {
+    .top-bar {
+        flex-wrap: wrap;
+        padding: 1rem 1.25rem;
+        gap: 0.75rem;
+    }
+
+    .logo {
+        order: 1;
+    }
+
+    .user-menu {
+        order: 2;
+        margin-left: auto;
+    }
+
+    .search-form {
+        order: 3;
+        width: 100%;
+        flex-wrap: nowrap;
+    }
+
+    .search-input {
+        flex: 1;
+        min-width: 150px;
+    }
+
+    .main-content {
+        padding: 2rem 1.5rem;
+    }
+
+    .main-content .welcome-title {
+        font-size: 2rem;
+    }
+
+    .main-content > .welcome-content .welcome-features {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .main-content .welcome-features .feature {
+        width: calc(50% - 0.75rem);
+    }
+
+    .main-content .welcome-features .feature:last-child {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets */
+    .tld-toggle,
+    .submit-btn,
+    .sign-in-btn,
+    .user-btn,
+    .dropdown-item,
+    .favorite-btn,
+    .domain-link,
+    .cache-refresh {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .dropdown-item {
+        padding: 0.9rem 1rem;
+    }
+
+    .favorite-btn {
+        padding: 0.5rem;
+        font-size: 1.25rem;
+    }
+
+    /* Remove hover effects that don't work on touch */
+    .domain-card:hover {
+        border-color: var(--border);
+    }
+
+    .domain-card:active {
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* Landscape phone orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+    .hero-state {
+        padding: 1rem;
+    }
+
+    .hero-title {
+        font-size: 2.5rem;
+    }
+
+    .hero-tagline {
+        margin-bottom: 1.5rem;
+    }
+
+    .hero-form {
+        gap: 1rem;
+    }
+
+    .modal-content {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .maintenance-content {
+        padding: 1.5rem;
+    }
+
+    .maintenance-icon {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .maintenance-title {
+        font-size: 1.5rem;
+    }
+}
