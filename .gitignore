@@ -35,3 +35,4 @@ cache.db
 cmd/lambda/bootstrap
 cmd/lambda/frontend/
 api
+lambda
