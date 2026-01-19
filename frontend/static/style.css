@@ -2602,19 +2602,35 @@ body {
     /* Top Bar - Complete mobile redesign */
     .top-bar {
         flex-direction: column;
-        align-items: stretch;
-        padding: 1rem;
-        gap: 0.75rem;
+        align-items: center;
+        padding: 1.25rem 1rem 1rem;
+        gap: 1rem;
+        position: relative;
     }
 
     .top-bar .logo {
-        display: none; /* Hide in header on mobile, show in hero only */
+        display: flex;
+        justify-content: center;
+        order: 1;
+    }
+
+    .top-bar .logo-text {
+        font-size: 1.75rem;
+    }
+
+    .top-bar .logo-mark {
+        font-size: 1.1rem;
+    }
+
+    .top-bar .logo-suffix {
+        font-size: 0.75rem;
     }
 
     .search-form {
         flex-direction: column;
         width: 100%;
         gap: 0.75rem;
+        order: 2;
     }
 
     .search-input {
@@ -2646,9 +2662,10 @@ body {
 
     .user-menu {
         position: absolute;
-        top: 1rem;
+        top: 1.25rem;
         right: 1rem;
         margin-left: 0;
+        order: 0;
     }
 
     .sign-in-btn {
