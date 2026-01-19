@@ -2620,8 +2620,10 @@ body {
     .search-input {
         width: 100%;
         min-width: unset;
-        padding: 0.75rem 1rem;
+        min-height: 80px;
+        padding: 0.875rem 1rem;
         font-size: 1rem;
+        line-height: 1.5;
     }
 
     .search-options {
