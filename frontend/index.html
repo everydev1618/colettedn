@@ -270,6 +270,28 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Registration View -->
+            <div id="registration-view" class="registration-view" hidden>
+                <div class="registration-header">
+                    <button id="registration-back" class="registration-back">&larr; Back to results</button>
+                </div>
+                <div class="registration-content">
+                    <h1 id="registration-domain" class="registration-domain"></h1>
+                    <div id="registration-stats" class="registration-stats"></div>
+                    <p class="registration-subtitle">Choose where to register:</p>
+                    <div id="registrar-cards" class="registrar-cards"></div>
+                    <div id="registration-preference" class="registration-preference" hidden>
+                        <label class="preference-label">
+                            <input type="checkbox" id="remember-registrar">
+                            <span class="preference-text">Remember my choice</span>
+                        </label>
+                    </div>
+                    <p id="login-for-preference" class="login-for-preference" hidden>
+                        <a href="#" id="login-for-pref-link">Sign in</a> to save your preference
+                    </p>
+                </div>
+            </div>
         </main>
 
         <footer class="app-footer">

@@ -24,12 +24,13 @@ const (
 )
 
 type User struct {
-	UserID             string           `dynamodbav:"user_id" json:"userId"`
-	Email              string           `dynamodbav:"email" json:"email"`
-	SubscriptionTier   SubscriptionTier `dynamodbav:"subscription_tier" json:"subscriptionTier"`
-	StripeCustomerID   string           `dynamodbav:"stripe_customer_id,omitempty" json:"stripeCustomerId,omitempty"`
-	SubscriptionExpiry int64            `dynamodbav:"subscription_expiry,omitempty" json:"subscriptionExpiry,omitempty"`
-	CreatedAt          int64            `dynamodbav:"created_at" json:"createdAt"`
+	UserID              string           `dynamodbav:"user_id" json:"userId"`
+	Email               string           `dynamodbav:"email" json:"email"`
+	SubscriptionTier    SubscriptionTier `dynamodbav:"subscription_tier" json:"subscriptionTier"`
+	StripeCustomerID    string           `dynamodbav:"stripe_customer_id,omitempty" json:"stripeCustomerId,omitempty"`
+	SubscriptionExpiry  int64            `dynamodbav:"subscription_expiry,omitempty" json:"subscriptionExpiry,omitempty"`
+	PreferredRegistrar  string           `dynamodbav:"preferred_registrar,omitempty" json:"preferredRegistrar,omitempty"`
+	CreatedAt           int64            `dynamodbav:"created_at" json:"createdAt"`
 }
 
 type Service struct {
@@ -147,6 +148,20 @@ func (s *Service) UpdateSubscription(ctx context.Context, userID, stripeCustomer
 			":tier": &types.AttributeValueMemberS{Value: string(tier)},
 			":cid":  &types.AttributeValueMemberS{Value: stripeCustomerID},
 			":exp":  &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", expiry)},
+		},
+	})
+	return err
+}
+
+func (s *Service) UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string) error {
+	_, err := s.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.tableName),
+		Key: map[string]types.AttributeValue{
+			"user_id": &types.AttributeValueMemberS{Value: userID},
+		},
+		UpdateExpression: aws.String("SET preferred_registrar = :reg"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":reg": &types.AttributeValueMemberS{Value: preferredRegistrar},
 		},
 	})
 	return err

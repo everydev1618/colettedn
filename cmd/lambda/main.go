@@ -90,6 +90,8 @@ func init() {
 
 		// Protected routes (require auth)
 		mux.Handle("GET /api/user/me", authMiddleware.RequireAuth(http.HandlerFunc(authHandler.Me)))
+		mux.Handle("GET /api/user/preferences", authMiddleware.RequireAuth(http.HandlerFunc(authHandler.GetPreferences)))
+		mux.Handle("PUT /api/user/preferences", authMiddleware.RequireAuth(http.HandlerFunc(authHandler.UpdatePreferences)))
 
 		if favHandler != nil {
 			mux.Handle("GET /api/favorites", authMiddleware.RequireAuth(http.HandlerFunc(favHandler.List)))

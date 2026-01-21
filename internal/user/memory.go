@@ -91,6 +91,19 @@ func (s *MemoryService) UpdateSubscription(ctx context.Context, userID, stripeCu
 	return nil
 }
 
+func (s *MemoryService) UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	user, ok := s.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+
+	user.PreferredRegistrar = preferredRegistrar
+	return nil
+}
+
 func (s *MemoryService) GetByStripeCustomerID(ctx context.Context, customerID string) (*User, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

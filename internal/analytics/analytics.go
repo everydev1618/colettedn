@@ -84,11 +84,18 @@ func (s *Service) TrackRateLimitHit(ctx context.Context, ipAddress, reason strin
 	}()
 }
 
-// TrackAffiliateClick records a click to Namecheap
-func (s *Service) TrackAffiliateClick(ctx context.Context, userID, domain string) {
+// TrackAffiliateClick records a click to a registrar
+func (s *Service) TrackAffiliateClick(ctx context.Context, userID, domain, registrar string) {
 	go func() {
 		s.incrementDailyCounter(ctx, "affiliate_clicks")
-		s.recordEvent(ctx, EventAffiliateClick, userID, "", "", domain)
+		if registrar != "" {
+			s.incrementDailyCounter(ctx, fmt.Sprintf("affiliate_clicks#%s", registrar))
+		}
+		metadata := domain
+		if registrar != "" {
+			metadata = fmt.Sprintf("%s|registrar=%s", domain, registrar)
+		}
+		s.recordEvent(ctx, EventAffiliateClick, userID, "", "", metadata)
 	}()
 }
 
@@ -372,12 +379,16 @@ func (m *MemoryService) TrackRateLimitHit(ctx context.Context, ipAddress, reason
 	m.counters["ratelimit_hits#total"]++
 }
 
-func (m *MemoryService) TrackAffiliateClick(ctx context.Context, userID, domain string) {
+func (m *MemoryService) TrackAffiliateClick(ctx context.Context, userID, domain, registrar string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	today := time.Now().Format("2006-01-02")
 	m.counters[fmt.Sprintf("affiliate_clicks#%s", today)]++
 	m.counters["affiliate_clicks#total"]++
+	if registrar != "" {
+		m.counters[fmt.Sprintf("affiliate_clicks#%s#%s", registrar, today)]++
+		m.counters[fmt.Sprintf("affiliate_clicks#%s#total", registrar)]++
+	}
 }
 
 func (m *MemoryService) TrackSignup(ctx context.Context, userID, email string) {
@@ -463,7 +474,7 @@ func (m *MemoryService) GetDailyTrend(ctx context.Context, metric string, days i
 type Analytics interface {
 	TrackSearch(ctx context.Context, userID, email, ipAddress, description, tldStyle string)
 	TrackRateLimitHit(ctx context.Context, ipAddress, reason string, isPro bool)
-	TrackAffiliateClick(ctx context.Context, userID, domain string)
+	TrackAffiliateClick(ctx context.Context, userID, domain, registrar string)
 	TrackSignup(ctx context.Context, userID, email string)
 	TrackUpgrade(ctx context.Context, userID, email string)
 	TrackChurn(ctx context.Context, userID, email string)

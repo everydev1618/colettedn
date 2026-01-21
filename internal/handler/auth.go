@@ -229,3 +229,62 @@ func (h *AuthHandler) GetMiddleware() *auth.Middleware {
 func (h *AuthHandler) GetAuthService() auth.TokenService {
 	return h.authService
 }
+
+// Preferences endpoints
+
+type PreferencesResponse struct {
+	PreferredRegistrar string `json:"preferredRegistrar"`
+	Error              string `json:"error,omitempty"`
+}
+
+type UpdatePreferencesRequest struct {
+	PreferredRegistrar string `json:"preferredRegistrar"`
+}
+
+func (h *AuthHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
+	u := auth.GetUser(r.Context())
+	if u == nil {
+		writeJSON(w, http.StatusUnauthorized, PreferencesResponse{Error: "Unauthorized"})
+		return
+	}
+
+	fullUser, err := h.userService.GetByID(r.Context(), u.UserID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, PreferencesResponse{Error: "Failed to get preferences"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, PreferencesResponse{
+		PreferredRegistrar: fullUser.PreferredRegistrar,
+	})
+}
+
+func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	u := auth.GetUser(r.Context())
+	if u == nil {
+		writeJSON(w, http.StatusUnauthorized, PreferencesResponse{Error: "Unauthorized"})
+		return
+	}
+
+	var req UpdatePreferencesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, PreferencesResponse{Error: "Invalid request body"})
+		return
+	}
+
+	// Validate registrar (optional, but helps prevent garbage data)
+	validRegistrars := map[string]bool{"namecheap": true, "godaddy": true, "porkbun": true, "": true}
+	if !validRegistrars[req.PreferredRegistrar] {
+		writeJSON(w, http.StatusBadRequest, PreferencesResponse{Error: "Invalid registrar"})
+		return
+	}
+
+	if err := h.userService.UpdatePreferences(r.Context(), u.UserID, req.PreferredRegistrar); err != nil {
+		writeJSON(w, http.StatusInternalServerError, PreferencesResponse{Error: "Failed to update preferences"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, PreferencesResponse{
+		PreferredRegistrar: req.PreferredRegistrar,
+	})
+}

@@ -539,10 +539,11 @@ func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// TrackAffiliateClick tracks a click to Namecheap affiliate link
+// TrackAffiliateClick tracks a click to registrar affiliate link
 func (h *Handler) TrackAffiliateClick(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Domain string `json:"domain"`
+		Domain    string `json:"domain"`
+		Registrar string `json:"registrar"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
@@ -554,7 +555,7 @@ func (h *Handler) TrackAffiliateClick(w http.ResponseWriter, r *http.Request) {
 		userID = authUser.UserID
 	}
 
-	analytics.Get().TrackAffiliateClick(r.Context(), userID, req.Domain)
+	analytics.Get().TrackAffiliateClick(r.Context(), userID, req.Domain, req.Registrar)
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 

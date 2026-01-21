@@ -509,6 +509,9 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsEl.hidden = true;
         historyView.hidden = true;
         favoritesView.hidden = false;
+        // Hide registration view if showing
+        const regView = document.getElementById('registration-view');
+        if (regView) regView.hidden = true;
         await renderFavoritesView();
     }
 
@@ -530,6 +533,9 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsEl.hidden = true;
         favoritesView.hidden = true;
         historyView.hidden = false;
+        // Hide registration view if showing
+        const regView = document.getElementById('registration-view');
+        if (regView) regView.hidden = true;
         await renderHistoryView();
     }
 
@@ -708,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : '';
             const actionHtml = isOwned
                 ? `<button class="unown-btn" data-domain="${escapeHtml(domain)}" title="Remove ownership">✕</button>`
-                : `<a href="${getAffiliateUrl(domain)}" target="_blank" rel="noopener" class="domain-link" data-domain="${escapeHtml(domain)}">Register &rarr;</a>`;
+                : `<button class="domain-register-btn" data-domain="${escapeHtml(domain)}">Register &rarr;</button>`;
 
             return `
                 <div class="domain-card${isOwned ? ' owned' : ''}" style="animation-delay: ${i * 0.03}s">
@@ -737,16 +743,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Track affiliate link clicks
-        favoritesList.querySelectorAll('.domain-link').forEach(link => {
-            link.addEventListener('click', () => {
-                const domain = link.dataset.domain;
-                if (domain) {
-                    fetch('/api/track/affiliate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ domain })
-                    }).catch(() => {});
+        // Register button click handlers - open registration view
+        favoritesList.querySelectorAll('.domain-register-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const domain = btn.dataset.domain;
+                if (domain && typeof showRegistrationView === 'function') {
+                    showRegistrationView(domain);
                 }
             });
         });
@@ -860,10 +862,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Hide favorites/history/welcome view if showing
+        // Hide favorites/history/welcome/registration view if showing
         favoritesView.hidden = true;
         historyView.hidden = true;
         welcomeContent.hidden = true;
+        const regView = document.getElementById('registration-view');
+        if (regView) regView.hidden = true;
 
         // Show loading state
         submitBtn.disabled = true;
@@ -1031,16 +1035,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Track affiliate link clicks
-        resultsEl.querySelectorAll('.domain-link').forEach(link => {
-            link.addEventListener('click', () => {
-                const domain = link.dataset.domain;
-                if (domain) {
-                    fetch('/api/track/affiliate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ domain })
-                    }).catch(() => {}); // Fire and forget
+        // Register button click handlers - open registration view
+        resultsEl.querySelectorAll('.domain-register-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const domain = btn.dataset.domain;
+                if (domain && typeof showRegistrationView === 'function') {
+                    showRegistrationView(domain);
                 }
             });
         });
@@ -1170,10 +1170,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `<span class="owned-badge" title="${ownedInfo.acquisitionType === 'found_via_colette' ? 'Found on Colette' : 'Previously owned'}">✓ Owned</span>`
             : '';
 
-        // Show "I own this" button or "Register" link based on ownership
+        // Show "I own this" button or "Register" button based on ownership
         const actionHtml = isOwned
             ? `<button class="unown-btn" data-domain="${escapeHtml(domain.name)}" title="Remove ownership">✕</button>`
-            : `<a href="${getAffiliateUrl(domain.name)}" target="_blank" rel="noopener" class="domain-link" data-domain="${escapeHtml(domain.name)}">Register &rarr;</a>`;
+            : `<button class="domain-register-btn" data-domain="${escapeHtml(domain.name)}">Register &rarr;</button>`;
 
         return `
             <div class="domain-card${isOwned ? ' owned' : ''}" style="animation-delay: ${index * 0.03}s">
@@ -1333,6 +1333,9 @@ document.addEventListener('DOMContentLoaded', () => {
         favoritesView.hidden = true;
         historyView.hidden = true;
         welcomeContent.hidden = false;
+        // Hide registration view if showing
+        const regView = document.getElementById('registration-view');
+        if (regView) regView.hidden = true;
     }
 
     // Get Started button - start onboarding tour
@@ -1448,4 +1451,257 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize stats on page load
     fetchStats();
+
+    // =========================================================================
+    // Registration View
+    // =========================================================================
+
+    const REGISTRARS = {
+        namecheap: {
+            id: 'namecheap',
+            name: 'Namecheap',
+            affiliateUrl: 'https://namecheap.pxf.io/c/6878241/1632743/5618',
+            getUrl: (d) => `https://www.namecheap.com/domains/registration/results/?domain=${encodeURIComponent(d)}`,
+            tagline: 'Best value',
+            price: '~$8.88/yr'
+        },
+        godaddy: {
+            id: 'godaddy',
+            name: 'GoDaddy',
+            affiliateUrl: null, // Will be added when available
+            getUrl: (d) => `https://www.godaddy.com/domainsearch/find?domainToCheck=${encodeURIComponent(d)}`,
+            tagline: 'Most popular',
+            price: '~$12.99/yr'
+        },
+        porkbun: {
+            id: 'porkbun',
+            name: 'Porkbun',
+            affiliateUrl: null, // Will be added when available
+            getUrl: (d) => `https://porkbun.com/checkout/search?q=${encodeURIComponent(d)}`,
+            tagline: 'Great prices',
+            price: '~$9.73/yr'
+        }
+    };
+
+    const TLD_INFO = {
+        'com': 'Most recognized TLD',
+        'io': 'Tech & startup favorite',
+        'co': 'Company & commercial',
+        'net': 'Network & infrastructure',
+        'org': 'Organizations & nonprofits',
+        'ai': 'AI & machine learning',
+        'app': 'Mobile & web apps',
+        'dev': 'Developer tools',
+        'me': 'Personal branding',
+        'xyz': 'Modern & creative',
+        'tech': 'Technology focused',
+        'site': 'General websites',
+        'online': 'Online presence'
+    };
+
+    // Registration view elements
+    const registrationView = document.getElementById('registration-view');
+    const registrationBack = document.getElementById('registration-back');
+    const registrationDomain = document.getElementById('registration-domain');
+    const registrationStats = document.getElementById('registration-stats');
+    const registrarCards = document.getElementById('registrar-cards');
+    const registrationPreference = document.getElementById('registration-preference');
+    const rememberRegistrar = document.getElementById('remember-registrar');
+    const loginForPreference = document.getElementById('login-for-preference');
+    const loginForPrefLink = document.getElementById('login-for-pref-link');
+
+    let currentRegistrationDomain = null;
+    let userPreferredRegistrar = null;
+
+    // Load user's preferred registrar from server when logged in
+    async function loadUserPreferences() {
+        if (!authToken) return;
+        try {
+            const response = await apiFetch('/api/user/preferences');
+            if (response.ok) {
+                const data = await response.json();
+                userPreferredRegistrar = data.preferredRegistrar || null;
+            }
+        } catch (err) {
+            console.error('Failed to load preferences:', err);
+        }
+    }
+
+    // Save user's preferred registrar
+    async function savePreferredRegistrar(registrarId) {
+        if (!authToken) return;
+        try {
+            await apiFetch('/api/user/preferences', {
+                method: 'PUT',
+                body: JSON.stringify({ preferredRegistrar: registrarId })
+            });
+            userPreferredRegistrar = registrarId;
+        } catch (err) {
+            console.error('Failed to save preference:', err);
+        }
+    }
+
+    function showRegistrationView(domain) {
+        currentRegistrationDomain = domain;
+
+        // Hide other views
+        welcomeContent.hidden = true;
+        resultsEl.hidden = true;
+        favoritesView.hidden = true;
+        historyView.hidden = true;
+
+        // Show registration view
+        registrationView.hidden = false;
+
+        // Set domain name
+        registrationDomain.textContent = domain;
+
+        // Compute and display stats
+        const stats = getDomainStats(domain);
+        registrationStats.innerHTML = `
+            <span class="stat-item">${stats.length} characters</span>
+            <span class="stat-separator">&middot;</span>
+            <span class="stat-item">.${stats.tld} TLD</span>
+            <span class="stat-separator">&middot;</span>
+            <span class="stat-item">${stats.tldInfo}</span>
+            ${stats.memorabilityLabel ? `<span class="stat-separator">&middot;</span><span class="stat-item">${stats.memorabilityLabel}</span>` : ''}
+        `;
+
+        // Render registrar cards
+        renderRegistrarCards(domain);
+
+        // Show/hide preference option based on login state
+        if (currentUser) {
+            registrationPreference.hidden = false;
+            loginForPreference.hidden = true;
+            rememberRegistrar.checked = false;
+        } else {
+            registrationPreference.hidden = true;
+            loginForPreference.hidden = false;
+        }
+    }
+
+    function hideRegistrationView() {
+        registrationView.hidden = true;
+        currentRegistrationDomain = null;
+
+        // Show results if we have them, otherwise welcome
+        if (Object.keys(categories).length > 0) {
+            resultsEl.hidden = false;
+        } else {
+            welcomeContent.hidden = false;
+        }
+    }
+
+    function getDomainStats(domain) {
+        const parts = domain.split('.');
+        const name = parts[0];
+        const tld = parts.slice(1).join('.');
+
+        const stats = {
+            length: name.length,
+            tld: tld,
+            tldInfo: TLD_INFO[tld] || 'Domain extension',
+            hasHyphens: name.includes('-'),
+            hasNumbers: /\d/.test(name)
+        };
+
+        // Calculate memorability score
+        let score = 100;
+        if (name.length > 12) score -= 20;
+        if (name.length > 8) score -= 10;
+        if (stats.hasHyphens) score -= 15;
+        if (stats.hasNumbers) score -= 10;
+        // Check for common letter patterns (vowels help pronunciation)
+        const vowelRatio = (name.match(/[aeiou]/gi) || []).length / name.length;
+        if (vowelRatio < 0.2) score -= 15;
+
+        if (score >= 80) {
+            stats.memorabilityLabel = 'Easy to remember';
+        } else if (score >= 60) {
+            stats.memorabilityLabel = 'Fairly memorable';
+        } else {
+            stats.memorabilityLabel = null;
+        }
+
+        return stats;
+    }
+
+    function getRegistrarUrl(domain, registrar) {
+        const directUrl = registrar.getUrl(domain);
+        if (registrar.affiliateUrl) {
+            return `${registrar.affiliateUrl}?u=${encodeURIComponent(directUrl)}`;
+        }
+        return directUrl;
+    }
+
+    function renderRegistrarCards(domain) {
+        const registrarOrder = ['namecheap', 'godaddy', 'porkbun'];
+
+        registrarCards.innerHTML = registrarOrder.map((id, index) => {
+            const registrar = REGISTRARS[id];
+            const isPreferred = userPreferredRegistrar === id;
+            const url = getRegistrarUrl(domain, registrar);
+
+            return `
+                <div class="registrar-card${isPreferred ? ' preferred' : ''}" style="animation-delay: ${index * 0.05}s">
+                    <div class="registrar-info">
+                        <div class="registrar-name">${registrar.name}</div>
+                        <div class="registrar-tagline">${registrar.tagline}</div>
+                    </div>
+                    <div class="registrar-right">
+                        <div class="registrar-price">${registrar.price}</div>
+                        <a href="${url}" target="_blank" rel="noopener" class="registrar-btn" data-registrar="${id}" data-domain="${escapeHtml(domain)}">
+                            Register &rarr;
+                        </a>
+                    </div>
+                    ${isPreferred ? '<span class="preferred-badge">Preferred</span>' : ''}
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers for tracking and preference saving
+        registrarCards.querySelectorAll('.registrar-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const registrarId = btn.dataset.registrar;
+                const domain = btn.dataset.domain;
+
+                // Track click
+                fetch('/api/track/affiliate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain, registrar: registrarId })
+                }).catch(() => {});
+
+                // Save preference if checkbox is checked
+                if (rememberRegistrar && rememberRegistrar.checked && currentUser) {
+                    await savePreferredRegistrar(registrarId);
+                }
+            });
+        });
+    }
+
+    // Back button handler
+    registrationBack.addEventListener('click', hideRegistrationView);
+
+    // Login link in preference area
+    loginForPrefLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        openLoginModal();
+    });
+
+    // Load preferences when auth state changes
+    // We hook into the existing fetchCurrentUser by adding our own call after user is fetched
+    const originalUpdateAuthUI = updateAuthUI;
+    updateAuthUI = function() {
+        originalUpdateAuthUI();
+        if (currentUser) {
+            loadUserPreferences();
+        } else {
+            userPreferredRegistrar = null;
+        }
+    };
+
+    // Make showRegistrationView available globally
+    window.showRegistrationView = showRegistrationView;
 });
