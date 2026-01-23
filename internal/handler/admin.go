@@ -57,14 +57,23 @@ type UserMetrics struct {
 }
 
 type EngagementMetrics struct {
-	SearchesToday       int64           `json:"searchesToday"`
-	SearchesThisWeek    int64           `json:"searchesThisWeek"`
-	SearchesAllTime     int64           `json:"searchesAllTime"`
-	AffiliateClicks     int64           `json:"affiliateClicksToday"`
-	AffiliateClicksWeek int64           `json:"affiliateClicksThisWeek"`
-	AffiliateByRegistrar RegistrarStats `json:"affiliateByRegistrar"`
-	RateLimitHitsToday  int64           `json:"rateLimitHitsToday"`
-	AvgSearchesPerUser  float64         `json:"avgSearchesPerUser"`
+	SearchesToday        int64           `json:"searchesToday"`
+	SearchesThisWeek     int64           `json:"searchesThisWeek"`
+	SearchesAllTime      int64           `json:"searchesAllTime"`
+	PageViewsToday       int64           `json:"pageViewsToday"`
+	PageViewsThisWeek    int64           `json:"pageViewsThisWeek"`
+	PageViewsAllTime     int64           `json:"pageViewsAllTime"`
+	AffiliateClicks      int64           `json:"affiliateClicksToday"`
+	AffiliateClicksWeek  int64           `json:"affiliateClicksThisWeek"`
+	AffiliateByRegistrar RegistrarStats  `json:"affiliateByRegistrar"`
+	TopReferrers         []ReferrerInfo  `json:"topReferrers"`
+	RateLimitHitsToday   int64           `json:"rateLimitHitsToday"`
+	AvgSearchesPerUser   float64         `json:"avgSearchesPerUser"`
+}
+
+type ReferrerInfo struct {
+	Domain string `json:"domain"`
+	Count  int64  `json:"count"`
 }
 
 type RegistrarStats struct {
@@ -94,6 +103,7 @@ type SignupInfo struct {
 
 type TrendData struct {
 	Searches  []DailyDataPoint `json:"searches"`
+	PageViews []DailyDataPoint `json:"pageViews"`
 	Signups   []DailyDataPoint `json:"signups"`
 	Upgrades  []DailyDataPoint `json:"upgrades"`
 	RateHits  []DailyDataPoint `json:"rateHits"`
@@ -152,6 +162,7 @@ func (h *AdminHandler) Stats(w http.ResponseWriter, r *http.Request) {
 		RecentFavorites:   []FavoriteInfo{},
 		Trends: TrendData{
 			Searches:  []DailyDataPoint{},
+			PageViews: []DailyDataPoint{},
 			Signups:   []DailyDataPoint{},
 			Upgrades:  []DailyDataPoint{},
 			RateHits:  []DailyDataPoint{},
@@ -217,6 +228,30 @@ func (h *AdminHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	}
 	if searchesTotal, err := a.GetTotalCount(ctx, "searches"); err == nil {
 		stats.Engagement.SearchesAllTime = searchesTotal
+	}
+
+	// Page views
+	if pvToday, err := a.GetDailyCount(ctx, "page_views", today); err == nil {
+		stats.Engagement.PageViewsToday = pvToday
+	}
+	if pvWeek, err := a.GetCountRange(ctx, "page_views", weekAgo, today); err == nil {
+		stats.Engagement.PageViewsThisWeek = pvWeek
+	}
+	if pvTotal, err := a.GetTotalCount(ctx, "page_views"); err == nil {
+		stats.Engagement.PageViewsAllTime = pvTotal
+	}
+
+	// Top referrers
+	if topRefs, err := a.GetTopReferrers(ctx, 10); err == nil {
+		for _, ref := range topRefs {
+			stats.Engagement.TopReferrers = append(stats.Engagement.TopReferrers, ReferrerInfo{
+				Domain: ref.Domain,
+				Count:  ref.Count,
+			})
+		}
+	}
+	if stats.Engagement.TopReferrers == nil {
+		stats.Engagement.TopReferrers = []ReferrerInfo{}
 	}
 
 	// Affiliate clicks
@@ -287,6 +322,11 @@ func (h *AdminHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	if searchTrend, err := a.GetDailyTrend(ctx, "searches", 14); err == nil {
 		for _, t := range searchTrend {
 			stats.Trends.Searches = append(stats.Trends.Searches, DailyDataPoint{Date: t.Date, Count: t.Count})
+		}
+	}
+	if pvTrend, err := a.GetDailyTrend(ctx, "page_views", 14); err == nil {
+		for _, t := range pvTrend {
+			stats.Trends.PageViews = append(stats.Trends.PageViews, DailyDataPoint{Date: t.Date, Count: t.Count})
 		}
 	}
 	if signupTrend, err := a.GetDailyTrend(ctx, "signups", 14); err == nil {

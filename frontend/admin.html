@@ -653,6 +653,15 @@
                     <h2 class="section-title"><span class="section-icon">📊</span> Engagement</h2>
                     <div class="stats-grid">
                         <div class="stat-card">
+                            <div class="stat-label">Page Views Today</div>
+                            <div class="stat-value" id="pageviews-today">0</div>
+                            <div class="stat-subtext"><span id="pageviews-week">0</span> this week</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">All-Time Page Views</div>
+                            <div class="stat-value small" id="pageviews-total">0</div>
+                        </div>
+                        <div class="stat-card">
                             <div class="stat-label">Searches Today</div>
                             <div class="stat-value" id="searches-today">0</div>
                             <div class="stat-subtext"><span id="searches-week">0</span> this week</div>
@@ -744,6 +753,16 @@
                         <div class="panel-body">
                             <ul class="user-list" id="favorites-list">
                                 <li class="empty-state">No favorites yet</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Top Referrers -->
+                    <div class="panel">
+                        <div class="panel-header">Top Referrers (Traffic Sources)</div>
+                        <div class="panel-body">
+                            <ul class="user-list" id="referrers-list">
+                                <li class="empty-state">No referrer data yet</li>
                             </ul>
                         </div>
                     </div>
@@ -857,10 +876,26 @@
             document.getElementById('signups-today').textContent = data.users?.signupsToday || 0;
 
             // Engagement
+            document.getElementById('pageviews-today').textContent = data.engagement?.pageViewsToday || 0;
+            document.getElementById('pageviews-week').textContent = data.engagement?.pageViewsThisWeek || 0;
+            document.getElementById('pageviews-total').textContent = formatNumber(data.engagement?.pageViewsAllTime || 0);
             document.getElementById('searches-today').textContent = data.engagement?.searchesToday || 0;
             document.getElementById('searches-week').textContent = data.engagement?.searchesThisWeek || 0;
             document.getElementById('searches-total').textContent = formatNumber(data.engagement?.searchesAllTime || 0);
             document.getElementById('avg-searches').textContent = (data.engagement?.avgSearchesPerUser || 0).toFixed(1);
+
+            // Top referrers
+            const referrersList = document.getElementById('referrers-list');
+            if (data.engagement?.topReferrers && data.engagement.topReferrers.length > 0) {
+                referrersList.innerHTML = data.engagement.topReferrers.map(ref => `
+                    <li class="user-item">
+                        <span class="user-email">${escapeHtml(ref.domain)}</span>
+                        <span class="user-meta">${ref.count} visits</span>
+                    </li>
+                `).join('');
+            } else {
+                referrersList.innerHTML = '<li class="empty-state">No referrer data yet</li>';
+            }
             document.getElementById('affiliate-today').textContent = data.engagement?.affiliateClicksToday || 0;
             document.getElementById('affiliate-week').textContent = data.engagement?.affiliateClicksThisWeek || 0;
 

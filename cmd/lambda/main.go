@@ -79,6 +79,7 @@ func init() {
 	mux.HandleFunc("GET /api/health", h.Health)
 	mux.HandleFunc("GET /api/stats", h.Stats)
 	mux.HandleFunc("POST /api/track/affiliate", h.TrackAffiliateClick)
+	mux.HandleFunc("POST /api/track/pageview", h.TrackPageView)
 
 	// Auth routes
 	if authHandler != nil {

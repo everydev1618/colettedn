@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,6 +52,12 @@ type Event struct {
 	TTL       int64  `dynamodbav:"ttl,omitempty"`
 }
 
+// ReferrerCount represents a referrer domain and its count
+type ReferrerCount struct {
+	Domain string `json:"domain"`
+	Count  int64  `json:"count"`
+}
+
 // NewService creates a new analytics service
 func NewService(tableName string) (*Service, error) {
 	cfg, err := config.LoadDefaultConfig(context.Background())
@@ -62,6 +69,21 @@ func NewService(tableName string) (*Service, error) {
 		db:        dynamodb.NewFromConfig(cfg),
 		tableName: tableName,
 	}, nil
+}
+
+// TrackPageView records a page view with referrer
+func (s *Service) TrackPageView(ctx context.Context, path, referrer, ipAddress string) {
+	go func() {
+		s.incrementDailyCounter(ctx, "page_views")
+		if referrer != "" {
+			// Extract domain from referrer for aggregation
+			refDomain := extractDomain(referrer)
+			if refDomain != "" {
+				s.incrementDailyCounter(ctx, fmt.Sprintf("referrer#%s", refDomain))
+			}
+		}
+		s.recordEvent(ctx, "page_view", "", "", ipAddress, fmt.Sprintf("%s|%s", path, referrer))
+	}()
 }
 
 // TrackSearch records a search event
@@ -221,6 +243,50 @@ func (s *Service) GetRecentEvents(ctx context.Context, eventType string, limit i
 	return events, nil
 }
 
+// GetTopReferrers gets the top referrer domains by total count
+func (s *Service) GetTopReferrers(ctx context.Context, limit int) ([]ReferrerCount, error) {
+	// Scan for all referrer totals
+	result, err := s.db.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(s.tableName),
+		FilterExpression: aws.String("begins_with(pk, :prefix)"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":prefix": &types.AttributeValueMemberS{Value: "total#referrer#"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var referrers []ReferrerCount
+	for _, item := range result.Items {
+		var counter DailyCounter
+		if err := attributevalue.UnmarshalMap(item, &counter); err != nil {
+			continue
+		}
+		// Extract domain from pk (format: "total#referrer#domain.com")
+		domain := strings.TrimPrefix(counter.MetricKey, "total#referrer#")
+		referrers = append(referrers, ReferrerCount{
+			Domain: domain,
+			Count:  counter.Count,
+		})
+	}
+
+	// Sort by count descending
+	for i := 0; i < len(referrers)-1; i++ {
+		for j := i + 1; j < len(referrers); j++ {
+			if referrers[j].Count > referrers[i].Count {
+				referrers[i], referrers[j] = referrers[j], referrers[i]
+			}
+		}
+	}
+
+	// Limit results
+	if len(referrers) > limit {
+		referrers = referrers[:limit]
+	}
+	return referrers, nil
+}
+
 // GetDailyTrend gets daily counts for a metric over the past N days
 // Returns all days in the range, with 0 for days without data
 func (s *Service) GetDailyTrend(ctx context.Context, metric string, days int) ([]DailyCounter, error) {
@@ -345,6 +411,23 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen]
 }
 
+func extractDomain(urlStr string) string {
+	// Simple domain extraction from URL
+	if urlStr == "" {
+		return ""
+	}
+	// Remove protocol
+	urlStr = strings.TrimPrefix(urlStr, "https://")
+	urlStr = strings.TrimPrefix(urlStr, "http://")
+	// Get domain part (before any path)
+	if idx := strings.Index(urlStr, "/"); idx > 0 {
+		urlStr = urlStr[:idx]
+	}
+	// Remove www. prefix for cleaner aggregation
+	urlStr = strings.TrimPrefix(urlStr, "www.")
+	return urlStr
+}
+
 // MemoryService is an in-memory analytics service for local development
 type MemoryService struct {
 	mu       sync.RWMutex
@@ -357,6 +440,21 @@ func NewMemoryService() *MemoryService {
 	return &MemoryService{
 		counters: make(map[string]int64),
 		events:   make(map[string][]Event),
+	}
+}
+
+func (m *MemoryService) TrackPageView(ctx context.Context, path, referrer, ipAddress string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	today := time.Now().Format("2006-01-02")
+	m.counters[fmt.Sprintf("page_views#%s", today)]++
+	m.counters["page_views#total"]++
+	if referrer != "" {
+		refDomain := extractDomain(referrer)
+		if refDomain != "" {
+			m.counters[fmt.Sprintf("referrer#%s#%s", refDomain, today)]++
+			m.counters[fmt.Sprintf("referrer#%s#total", refDomain)]++
+		}
 	}
 }
 
@@ -470,8 +568,42 @@ func (m *MemoryService) GetDailyTrend(ctx context.Context, metric string, days i
 	return counters, nil
 }
 
+func (m *MemoryService) GetTopReferrers(ctx context.Context, limit int) ([]ReferrerCount, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Find all referrer totals
+	var referrers []ReferrerCount
+	prefix := "referrer#"
+	suffix := "#total"
+	for key, count := range m.counters {
+		if strings.HasPrefix(key, prefix) && strings.HasSuffix(key, suffix) {
+			domain := strings.TrimSuffix(strings.TrimPrefix(key, prefix), suffix)
+			referrers = append(referrers, ReferrerCount{
+				Domain: domain,
+				Count:  count,
+			})
+		}
+	}
+
+	// Sort by count descending
+	for i := 0; i < len(referrers)-1; i++ {
+		for j := i + 1; j < len(referrers); j++ {
+			if referrers[j].Count > referrers[i].Count {
+				referrers[i], referrers[j] = referrers[j], referrers[i]
+			}
+		}
+	}
+
+	if len(referrers) > limit {
+		referrers = referrers[:limit]
+	}
+	return referrers, nil
+}
+
 // Analytics is the interface for analytics tracking
 type Analytics interface {
+	TrackPageView(ctx context.Context, path, referrer, ipAddress string)
 	TrackSearch(ctx context.Context, userID, email, ipAddress, description, tldStyle string)
 	TrackRateLimitHit(ctx context.Context, ipAddress, reason string, isPro bool)
 	TrackAffiliateClick(ctx context.Context, userID, domain, registrar string)
@@ -483,6 +615,7 @@ type Analytics interface {
 	GetTotalCount(ctx context.Context, metric string) (int64, error)
 	GetRecentEvents(ctx context.Context, eventType string, limit int) ([]Event, error)
 	GetDailyTrend(ctx context.Context, metric string, days int) ([]DailyCounter, error)
+	GetTopReferrers(ctx context.Context, limit int) ([]ReferrerCount, error)
 }
 
 // Ensure implementations satisfy the interface

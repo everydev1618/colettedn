@@ -559,6 +559,22 @@ func (h *Handler) TrackAffiliateClick(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
+// TrackPageView tracks a page view with referrer
+func (h *Handler) TrackPageView(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path     string `json:"path"`
+		Referrer string `json:"referrer"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		return
+	}
+
+	ipAddress := getClientIP(r)
+	analytics.Get().TrackPageView(r.Context(), req.Path, req.Referrer, ipAddress)
+	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
 func (h *Handler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "frontend/index.html")
 }
