@@ -57,13 +57,23 @@ type UserMetrics struct {
 }
 
 type EngagementMetrics struct {
-	SearchesToday       int64   `json:"searchesToday"`
-	SearchesThisWeek    int64   `json:"searchesThisWeek"`
-	SearchesAllTime     int64   `json:"searchesAllTime"`
-	AffiliateClicks     int64   `json:"affiliateClicksToday"`
-	AffiliateClicksWeek int64   `json:"affiliateClicksThisWeek"`
-	RateLimitHitsToday  int64   `json:"rateLimitHitsToday"`
-	AvgSearchesPerUser  float64 `json:"avgSearchesPerUser"`
+	SearchesToday       int64           `json:"searchesToday"`
+	SearchesThisWeek    int64           `json:"searchesThisWeek"`
+	SearchesAllTime     int64           `json:"searchesAllTime"`
+	AffiliateClicks     int64           `json:"affiliateClicksToday"`
+	AffiliateClicksWeek int64           `json:"affiliateClicksThisWeek"`
+	AffiliateByRegistrar RegistrarStats `json:"affiliateByRegistrar"`
+	RateLimitHitsToday  int64           `json:"rateLimitHitsToday"`
+	AvgSearchesPerUser  float64         `json:"avgSearchesPerUser"`
+}
+
+type RegistrarStats struct {
+	Namecheap    int64 `json:"namecheap"`
+	GoDaddy      int64 `json:"godaddy"`
+	Porkbun      int64 `json:"porkbun"`
+	NamecheapAll int64 `json:"namecheapAll"`
+	GoDaddyAll   int64 `json:"godaddyAll"`
+	PorkbunAll   int64 `json:"porkbunAll"`
 }
 
 type OperationalMetrics struct {
@@ -215,6 +225,27 @@ func (h *AdminHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	}
 	if clicksWeek, err := a.GetCountRange(ctx, "affiliate_clicks", weekAgo, today); err == nil {
 		stats.Engagement.AffiliateClicksWeek = clicksWeek
+	}
+
+	// Per-registrar affiliate clicks (this week)
+	if nc, err := a.GetCountRange(ctx, "affiliate_clicks#namecheap", weekAgo, today); err == nil {
+		stats.Engagement.AffiliateByRegistrar.Namecheap = nc
+	}
+	if gd, err := a.GetCountRange(ctx, "affiliate_clicks#godaddy", weekAgo, today); err == nil {
+		stats.Engagement.AffiliateByRegistrar.GoDaddy = gd
+	}
+	if pb, err := a.GetCountRange(ctx, "affiliate_clicks#porkbun", weekAgo, today); err == nil {
+		stats.Engagement.AffiliateByRegistrar.Porkbun = pb
+	}
+	// Per-registrar all-time totals
+	if ncAll, err := a.GetTotalCount(ctx, "affiliate_clicks#namecheap"); err == nil {
+		stats.Engagement.AffiliateByRegistrar.NamecheapAll = ncAll
+	}
+	if gdAll, err := a.GetTotalCount(ctx, "affiliate_clicks#godaddy"); err == nil {
+		stats.Engagement.AffiliateByRegistrar.GoDaddyAll = gdAll
+	}
+	if pbAll, err := a.GetTotalCount(ctx, "affiliate_clicks#porkbun"); err == nil {
+		stats.Engagement.AffiliateByRegistrar.PorkbunAll = pbAll
 	}
 
 	// Signups

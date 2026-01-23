@@ -393,6 +393,70 @@
             font-weight: 500;
         }
 
+        .registrar-breakdown {
+            margin-top: 0.5rem;
+        }
+
+        .registrar-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .registrar-row:last-child {
+            border-bottom: none;
+        }
+
+        .registrar-row span:first-child {
+            color: var(--muted);
+        }
+
+        .registrar-row span:last-child {
+            font-weight: 500;
+        }
+
+        .registrar-popularity {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .registrar-pop-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .registrar-name {
+            width: 80px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .registrar-bar-container {
+            flex: 1;
+            height: 24px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .registrar-bar {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .registrar-count {
+            width: 50px;
+            text-align: right;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
         /* Mobile Responsive Styles */
         @media (max-width: 600px) {
             .admin-header {
@@ -604,6 +668,14 @@
                             <div class="stat-subtext"><span id="affiliate-week">0</span> this week</div>
                         </div>
                         <div class="stat-card">
+                            <div class="stat-label">Registrar Clicks (Week)</div>
+                            <div class="registrar-breakdown" id="registrar-breakdown">
+                                <div class="registrar-row"><span>Namecheap</span><span id="reg-namecheap">0</span></div>
+                                <div class="registrar-row"><span>GoDaddy</span><span id="reg-godaddy">0</span></div>
+                                <div class="registrar-row"><span>Porkbun</span><span id="reg-porkbun">0</span></div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
                             <div class="stat-label">Rate Limit Hits</div>
                             <div class="stat-value small" id="ratelimit-today">0</div>
                             <div class="stat-subtext"><span id="ratelimit-week">0</span> this week</div>
@@ -673,6 +745,36 @@
                             <ul class="user-list" id="favorites-list">
                                 <li class="empty-state">No favorites yet</li>
                             </ul>
+                        </div>
+                    </div>
+
+                    <!-- Registrar Popularity -->
+                    <div class="panel">
+                        <div class="panel-header">Registrar Popularity (All-Time)</div>
+                        <div class="panel-body">
+                            <div class="registrar-popularity" id="registrar-popularity">
+                                <div class="registrar-pop-row">
+                                    <div class="registrar-name">Namecheap</div>
+                                    <div class="registrar-bar-container">
+                                        <div class="registrar-bar" id="bar-namecheap" style="width: 0%"></div>
+                                    </div>
+                                    <div class="registrar-count" id="count-namecheap">0</div>
+                                </div>
+                                <div class="registrar-pop-row">
+                                    <div class="registrar-name">GoDaddy</div>
+                                    <div class="registrar-bar-container">
+                                        <div class="registrar-bar" id="bar-godaddy" style="width: 0%"></div>
+                                    </div>
+                                    <div class="registrar-count" id="count-godaddy">0</div>
+                                </div>
+                                <div class="registrar-pop-row">
+                                    <div class="registrar-name">Porkbun</div>
+                                    <div class="registrar-bar-container">
+                                        <div class="registrar-bar" id="bar-porkbun" style="width: 0%"></div>
+                                    </div>
+                                    <div class="registrar-count" id="count-porkbun">0</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -761,6 +863,25 @@
             document.getElementById('avg-searches').textContent = (data.engagement?.avgSearchesPerUser || 0).toFixed(1);
             document.getElementById('affiliate-today').textContent = data.engagement?.affiliateClicksToday || 0;
             document.getElementById('affiliate-week').textContent = data.engagement?.affiliateClicksThisWeek || 0;
+
+            // Registrar breakdown (weekly)
+            const registrarStats = data.engagement?.affiliateByRegistrar || {};
+            document.getElementById('reg-namecheap').textContent = registrarStats.namecheap || 0;
+            document.getElementById('reg-godaddy').textContent = registrarStats.godaddy || 0;
+            document.getElementById('reg-porkbun').textContent = registrarStats.porkbun || 0;
+
+            // Registrar popularity (all-time bar chart)
+            const ncAll = registrarStats.namecheapAll || 0;
+            const gdAll = registrarStats.godaddyAll || 0;
+            const pbAll = registrarStats.porkbunAll || 0;
+            const maxAll = Math.max(ncAll, gdAll, pbAll, 1);
+
+            document.getElementById('count-namecheap').textContent = ncAll;
+            document.getElementById('count-godaddy').textContent = gdAll;
+            document.getElementById('count-porkbun').textContent = pbAll;
+            document.getElementById('bar-namecheap').style.width = (ncAll / maxAll * 100) + '%';
+            document.getElementById('bar-godaddy').style.width = (gdAll / maxAll * 100) + '%';
+            document.getElementById('bar-porkbun').style.width = (pbAll / maxAll * 100) + '%';
             document.getElementById('ratelimit-today').textContent = data.engagement?.rateLimitHitsToday || 0;
             document.getElementById('ratelimit-week').textContent = data.operational?.rateLimitHitsWeek || 0;
 
