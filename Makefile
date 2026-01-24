@@ -1,4 +1,4 @@
-.PHONY: build run dev clean build-lambda
+.PHONY: build run dev clean build-lambda test
 
 build:
 	go build -o bin/api ./cmd/api
@@ -20,6 +20,10 @@ build-ColetteDNFunction:
 # SAM local testing
 sam-local:
 	sam local start-api
+
+# Run tests (requires ANTHROPIC_API_KEY for smoke tests)
+test:
+	go test -v ./...
 
 # Deploy to AWS
 deploy:
