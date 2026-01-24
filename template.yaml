@@ -31,6 +31,8 @@ Parameters:
 Resources:
   ColetteDNFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
       CodeUri: ColetteDNFunction
       Handler: bootstrap
@@ -97,6 +99,8 @@ Resources:
   # Notifier Lambda - sends expiration notifications daily
   NotifierFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
       CodeUri: NotifierFunction
       Handler: bootstrap
