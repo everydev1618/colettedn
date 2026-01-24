@@ -433,8 +433,9 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 							})
 						}
 					}
-				} else if availabilityErr != nil {
-					// API failed - include as unverified
+				} else {
+					// Domain not in availability map (RDAP error or unsupported TLD)
+					// Include as unverified so user still sees the suggestion
 					result := DomainResult{Name: d, Score: scoreDomain(d)}
 					availableByCategory[cat] = append(availableByCategory[cat], result)
 				}
