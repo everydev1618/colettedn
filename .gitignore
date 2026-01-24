@@ -29,6 +29,8 @@ Thumbs.db
 # Build
 /dist/
 cache.db
+frontend/static/dist/
+node_modules/
 
 # SAM/Lambda build artifacts
 .aws-sam/

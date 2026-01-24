@@ -14,6 +14,7 @@ clean:
 
 # Lambda build (used by SAM)
 build-ColetteDNFunction:
+	npm ci && npm run build
 	cp -r frontend $(ARTIFACTS_DIR)/
 	cd cmd/lambda && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o $(ARTIFACTS_DIR)/bootstrap .
 

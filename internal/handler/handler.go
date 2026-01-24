@@ -89,8 +89,9 @@ func New(userService user.UserService) *Handler {
 }
 
 type GenerateRequest struct {
-	Description string `json:"description"`
-	TLDStyle    string `json:"tldStyle"`
+	Description string   `json:"description"`
+	TLDStyle    string   `json:"tldStyle"`
+	TLDs        []string `json:"tlds"` // Custom TLDs array (takes precedence over TLDStyle)
 }
 
 type GenerateResponse struct {
@@ -334,16 +335,26 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert TLD style to actual TLDs
+	// Convert TLD style to actual TLDs (or use custom TLDs if provided)
 	var tlds []string
-	switch req.TLDStyle {
-	case "creative":
-		tlds = []string{".com", ".io", ".ai", ".app", ".dev", ".co"}
-	case "global":
-		tlds = []string{".co.uk", ".de", ".eu", ".ca", ".com.au", ".co.za"}
-	default:
-		// Traditional (default)
-		tlds = []string{".com", ".co", ".net", ".org"}
+	if len(req.TLDs) > 0 {
+		// Use custom TLDs - add dot prefix if missing
+		for _, tld := range req.TLDs {
+			if !strings.HasPrefix(tld, ".") {
+				tld = "." + tld
+			}
+			tlds = append(tlds, tld)
+		}
+	} else {
+		switch req.TLDStyle {
+		case "creative":
+			tlds = []string{".com", ".io", ".ai", ".app", ".dev", ".co"}
+		case "global":
+			tlds = []string{".co.uk", ".de", ".eu", ".ca", ".com.au", ".co.za"}
+		default:
+			// Traditional (default)
+			tlds = []string{".com", ".co", ".net", ".org"}
+		}
 	}
 
 	// Track search

@@ -201,7 +201,28 @@
                     <button type="button" class="tld-toggle active" data-value="traditional">.com .co .net</button>
                     <button type="button" class="tld-toggle" data-value="creative">.io .ai .app .dev</button>
                     <button type="button" class="tld-toggle" data-value="global">.co.uk .de .eu</button>
+                    <button type="button" class="tld-customize-btn" id="tld-customize-btn">Customize</button>
                     <input type="hidden" id="tld-style" value="traditional">
+                </div>
+
+                <div class="tld-custom-panel" id="tld-custom-panel" hidden>
+                    <div class="tld-custom-chips">
+                        <button type="button" class="tld-chip active" data-tld="com">.com</button>
+                        <button type="button" class="tld-chip active" data-tld="co">.co</button>
+                        <button type="button" class="tld-chip active" data-tld="net">.net</button>
+                        <button type="button" class="tld-chip" data-tld="org">.org</button>
+                        <button type="button" class="tld-chip" data-tld="io">.io</button>
+                        <button type="button" class="tld-chip" data-tld="ai">.ai</button>
+                        <button type="button" class="tld-chip" data-tld="app">.app</button>
+                        <button type="button" class="tld-chip" data-tld="dev">.dev</button>
+                        <button type="button" class="tld-chip" data-tld="me">.me</button>
+                        <button type="button" class="tld-chip" data-tld="xyz">.xyz</button>
+                        <button type="button" class="tld-chip" data-tld="tech">.tech</button>
+                        <button type="button" class="tld-chip" data-tld="co.uk">.co.uk</button>
+                        <button type="button" class="tld-chip" data-tld="de">.de</button>
+                        <button type="button" class="tld-chip" data-tld="eu">.eu</button>
+                    </div>
+                    <button type="button" class="tld-custom-done" id="tld-custom-done">Done</button>
                 </div>
 
                 <button type="submit" id="submit-btn" class="submit-btn">
@@ -412,6 +433,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/dist/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,78 @@
+// Auth state
+export let authToken = localStorage.getItem('authToken');
+export let currentUser = null;
+export let userFavorites = new Set();
+export let userOwnedDomains = new Map(); // domain -> { acquisitionType, createdAt }
+export let userMonitoring = new Map(); // domain -> { expirationDate, daysUntilExpiry, registrar }
+export let usageInfo = null; // { used, limit, unlimited }
+
+// Tab state
+export let tabs = [];
+export let activeTabId = null;
+export let tabCounter = 0;
+
+// Per-tab .com site checks
+export let comSiteChecks = new Map();
+
+// Registration state
+export let currentRegistrationDomain = null;
+export let userPreferredRegistrar = null;
+export let pendingOwnedDomain = null;
+
+// Maintenance
+export let maintenanceTimer = null;
+
+// Setters for state that needs to be modified from other modules
+export function setAuthToken(token) {
+    authToken = token;
+    if (token) {
+        localStorage.setItem('authToken', token);
+    } else {
+        localStorage.removeItem('authToken');
+    }
+}
+
+export function setCurrentUser(user) {
+    currentUser = user;
+}
+
+export function setUsageInfo(info) {
+    usageInfo = info;
+}
+
+export function setTabs(newTabs) {
+    tabs = newTabs;
+}
+
+export function setActiveTabId(id) {
+    activeTabId = id;
+}
+
+export function setTabCounter(count) {
+    tabCounter = count;
+}
+
+export function incrementTabCounter() {
+    tabCounter++;
+    return tabCounter;
+}
+
+export function setComSiteChecks(checks) {
+    comSiteChecks = checks;
+}
+
+export function setCurrentRegistrationDomain(domain) {
+    currentRegistrationDomain = domain;
+}
+
+export function setUserPreferredRegistrar(registrar) {
+    userPreferredRegistrar = registrar;
+}
+
+export function setPendingOwnedDomain(domain) {
+    pendingOwnedDomain = domain;
+}
+
+export function setMaintenanceTimer(timer) {
+    maintenanceTimer = timer;
+}
