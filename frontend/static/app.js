@@ -1048,47 +1048,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Extract base name from the first domain for the header
         const baseName = searchedDomain[0].name.split('.')[0];
+        const isPro = currentUser && currentUser.subscriptionTier === 'pro';
 
         const cards = searchedDomain.map(d => {
             const isAvailable = d.available;
-            const statusClass = isAvailable ? 'available' : 'taken';
-            const statusText = isAvailable ? 'Available' : 'Taken';
 
-            // Expiry info for taken domains
-            let expiryHtml = '';
-            if (!isAvailable && d.daysUntilExpiry !== null && d.daysUntilExpiry !== undefined) {
-                const expiryBadge = formatExpiryBadge(d.daysUntilExpiry, d.expirationDate);
-                expiryHtml = expiryBadge;
-            }
-
-            // Registrar info
-            const registrarHtml = !isAvailable && d.registrar
-                ? `<span class="searched-registrar">${escapeHtml(d.registrar)}</span>`
-                : '';
-
-            // Register button for available domains
-            let actionHtml = '';
             if (isAvailable) {
-                actionHtml = `
-                    <button class="searched-register-btn" data-domain="${escapeHtml(d.name)}">
-                        Register
-                    </button>
+                // Available domain - show register button
+                return `
+                    <div class="searched-card searched-card-available">
+                        <div class="searched-info">
+                            <div class="searched-name">${escapeHtml(d.name)}</div>
+                            <div class="searched-meta">
+                                <span class="searched-available-badge">Available</span>
+                            </div>
+                        </div>
+                        <button class="searched-register-btn" data-domain="${escapeHtml(d.name)}">
+                            Register
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Taken domain - show expiry info and monitor button (like unavailable section)
+                const isMonitored = userMonitoring.has(d.name.toLowerCase());
+                const expiryBadge = formatExpiryBadge(d.daysUntilExpiry, d.expirationDate);
+                const registrarText = d.registrar ? `<span class="registrar-info">${escapeHtml(d.registrar)}</span>` : '';
+
+                let monitorBtn = '';
+                if (isPro) {
+                    monitorBtn = `
+                        <button class="monitor-btn ${isMonitored ? 'monitored' : ''}"
+                                data-domain="${escapeHtml(d.name)}"
+                                data-expiration="${d.expirationDate || ''}"
+                                data-days="${d.daysUntilExpiry !== null ? d.daysUntilExpiry : ''}"
+                                data-registrar="${escapeHtml(d.registrar || '')}"
+                                title="${isMonitored ? 'Remove from monitoring' : 'Monitor this domain'}">
+                            ${isMonitored ? '◉' : '◯'}
+                        </button>
+                    `;
+                } else {
+                    monitorBtn = `
+                        <button class="monitor-btn pro-required" title="PRO required">
+                            ◯
+                            <span class="pro-label">PRO</span>
+                        </button>
+                    `;
+                }
+
+                return `
+                    <div class="searched-card">
+                        <div class="searched-info">
+                            <div class="searched-name searched-name-taken">${escapeHtml(d.name)}</div>
+                            <div class="searched-meta">
+                                ${expiryBadge}
+                                ${registrarText}
+                            </div>
+                        </div>
+                        ${monitorBtn}
+                    </div>
                 `;
             }
-
-            return `
-                <div class="searched-domain-card ${statusClass}">
-                    <div class="searched-domain-info">
-                        <span class="searched-domain-name">${escapeHtml(d.name)}</span>
-                        <span class="searched-domain-status ${statusClass}">${statusText}</span>
-                    </div>
-                    <div class="searched-domain-meta">
-                        ${expiryHtml}
-                        ${registrarHtml}
-                    </div>
-                    ${actionHtml}
-                </div>
-            `;
         }).join('');
 
         return `
@@ -1945,6 +1964,48 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Add monitor button handlers (for searched domain section)
+        resultsEl.querySelectorAll('.searched-domain-section .monitor-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+
+                // If PRO required button, open upgrade modal
+                if (btn.classList.contains('pro-required')) {
+                    if (!currentUser) {
+                        openLoginModal();
+                    } else {
+                        openUpgradeModal();
+                    }
+                    return;
+                }
+
+                const domain = btn.dataset.domain;
+                const isMonitored = userMonitoring.has(domain.toLowerCase());
+
+                if (isMonitored) {
+                    // Remove from monitoring
+                    const success = await removeFromMonitoring(domain);
+                    if (success) {
+                        btn.classList.remove('monitored');
+                        btn.textContent = '◯';
+                        btn.title = 'Monitor this domain';
+                    }
+                } else {
+                    // Add to monitoring
+                    const expirationDate = btn.dataset.expiration || null;
+                    const daysUntilExpiry = btn.dataset.days ? parseInt(btn.dataset.days) : null;
+                    const registrar = btn.dataset.registrar || '';
+
+                    const success = await addToMonitoring(domain, expirationDate, daysUntilExpiry, registrar);
+                    if (success) {
+                        btn.classList.add('monitored');
+                        btn.textContent = '◉';
+                        btn.title = 'Remove from monitoring';
+                    }
+                }
+            });
+        });
+
         // Add own button handlers
         resultsEl.querySelectorAll('.own-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -2077,14 +2138,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (domain.score) {
             // Convert 0-100 score to 1-5 squares
             const filledSquares = Math.ceil(domain.score / 20);
-            const labels = ['', 'Bad', 'Just OK', 'Average', 'Doable', 'Grab it!'];
-            const label = labels[filledSquares] || '';
+            const tooltips = [
+                '',
+                'Weak choice — hard to remember or spell',
+                'Passable — some drawbacks but usable',
+                'Decent — reasonably brandable',
+                'Strong — memorable and professional',
+                'Excellent — short, catchy, and brandable'
+            ];
+            const tooltip = tooltips[filledSquares] || '';
             let squares = '';
             for (let i = 1; i <= 5; i++) {
                 squares += `<div class="score-square ${i <= filledSquares ? 'filled' : ''}"></div>`;
             }
             scoreBarHtml = `
-                <div class="domain-score-bar score-level-${filledSquares}" title="${label} (${domain.score}/100)">
+                <div class="domain-score-bar score-level-${filledSquares}" title="${tooltip}">
                     ${squares}
                 </div>`;
         }
