@@ -1,6 +1,6 @@
 import {
     authToken, currentUser, userFavorites, userOwnedDomains, userMonitoring,
-    setAuthToken, setCurrentUser
+    setAuthToken, setCurrentUser, activeTabId, tabs
 } from '../state.js';
 import { apiFetch, getAuthHeaders } from '../api.js';
 import { escapeHtml } from '../utils.js';
@@ -9,6 +9,7 @@ import { ADMIN_EMAIL } from '../config.js';
 import { applyUserTheme } from '../theme.js';
 import { showWelcomeContent } from '../views/welcome.js';
 import { loadUserPreferences } from '../views/registration.js';
+import { renderResultsForTab } from '../search/results.js';
 
 export function checkAuthFromHash() {
     const hash = window.location.hash;
@@ -133,6 +134,12 @@ export function updateAuthUI() {
 
         // Load user preferences (for registrar preference, theme, etc.)
         loadUserPreferences();
+
+        // Re-render active tab to update PRO-only features (e.g., monitor buttons)
+        const activeTab = tabs.find(t => t.id === activeTabId);
+        if (activeTab && activeTab.categories && Object.keys(activeTab.categories).length > 0) {
+            renderResultsForTab(activeTab);
+        }
     } else {
         // Header (app layout)
         dom.signInBtn.hidden = false;
