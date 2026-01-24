@@ -1,4 +1,4 @@
-.PHONY: build run dev clean build-lambda test test-unit test-smoke
+.PHONY: build run dev clean build-lambda test test-unit test-smoke deploy-status deploy-watch deploy-logs
 
 build:
 	go build -o bin/api ./cmd/api
@@ -37,3 +37,15 @@ test-smoke:
 deploy:
 	sam build
 	sam deploy
+
+# Check recent deploy status
+deploy-status:
+	gh run list --limit 5
+
+# Watch current/latest deploy in real-time
+deploy-watch:
+	gh run watch $$(gh run list --limit 1 --json databaseId -q '.[0].databaseId') --exit-status
+
+# View logs if deploy failed
+deploy-logs:
+	gh run view $$(gh run list --limit 1 --json databaseId -q '.[0].databaseId') --log-failed
