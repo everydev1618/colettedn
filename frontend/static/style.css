@@ -2551,6 +2551,21 @@ body {
     color: var(--cream-dim);
 }
 
+.com-expiry {
+    font-size: 0.6rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    margin-left: 0.3rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--cream-dim);
+}
+
+.com-expiry.expiring-soon {
+    background: rgba(196, 168, 85, 0.2);
+    color: var(--gold);
+    font-weight: 500;
+}
+
 /* ==========================================================================
    Landing Page Welcome Content
    ========================================================================== */

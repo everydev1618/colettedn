@@ -20,6 +20,7 @@ import (
 	"github.com/everydev1618/colettedn/internal/killswitch"
 	"github.com/everydev1618/colettedn/internal/namecheap"
 	"github.com/everydev1618/colettedn/internal/ratelimit"
+	"github.com/everydev1618/colettedn/internal/rdap"
 	"github.com/everydev1618/colettedn/internal/user"
 )
 
@@ -30,6 +31,8 @@ type Handler struct {
 	limiter     *ratelimit.Limiter
 	ks          *killswitch.KillSwitch
 	userService user.UserService
+	rdap        *rdap.Client
+	rdapCache   *rdap.Cache
 }
 
 func New(userService user.UserService) *Handler {
@@ -89,6 +92,11 @@ func New(userService user.UserService) *Handler {
 			h.cache = c
 		}
 	}
+
+	// Initialize RDAP client for domain info lookups (expiration, registrar, etc.)
+	// RDAP data changes infrequently, so use 7-day cache TTL
+	h.rdap = rdap.New()
+	h.rdapCache = rdap.NewCache(7 * 24 * time.Hour)
 
 	return h
 }
@@ -697,6 +705,13 @@ func (h *Handler) TrackPageView(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
+// TrackTabOpen tracks when a user opens a new search tab
+func (h *Handler) TrackTabOpen(w http.ResponseWriter, r *http.Request) {
+	ipAddress := getClientIP(r)
+	analytics.Get().TrackTabOpen(r.Context(), ipAddress)
+	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
 func (h *Handler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "frontend/index.html")
 }
@@ -781,10 +796,13 @@ type CheckComRequest struct {
 }
 
 type CheckComResponse struct {
-	Domain    string        `json:"domain"`    // The .com domain that was checked
-	Status    ComSiteStatus `json:"status"`    // active, parked, inactive, available
-	FromCache bool          `json:"fromCache"` // Whether this came from cache
-	Error     string        `json:"error,omitempty"`
+	Domain          string        `json:"domain"`                    // The .com domain that was checked
+	Status          ComSiteStatus `json:"status"`                    // active, parked, inactive, available
+	FromCache       bool          `json:"fromCache"`                 // Whether this came from cache
+	ExpirationDate  *string       `json:"expirationDate,omitempty"`  // When the domain expires (ISO 8601)
+	DaysUntilExpiry *int          `json:"daysUntilExpiry,omitempty"` // Days until expiration
+	Registrar       string        `json:"registrar,omitempty"`       // Current registrar
+	Error           string        `json:"error,omitempty"`
 }
 
 // In-memory cache for .com site checks (TTL: 24 hours)
@@ -794,8 +812,11 @@ var (
 )
 
 type comSiteCacheEntry struct {
-	Status    ComSiteStatus
-	CheckedAt time.Time
+	Status          ComSiteStatus
+	CheckedAt       time.Time
+	ExpirationDate  *string
+	DaysUntilExpiry *int
+	Registrar       string
 }
 
 const comSiteCacheTTL = 24 * time.Hour
@@ -830,9 +851,12 @@ func (h *Handler) CheckComSite(w http.ResponseWriter, r *http.Request) {
 
 	if found && time.Since(entry.CheckedAt) < comSiteCacheTTL {
 		writeJSON(w, http.StatusOK, CheckComResponse{
-			Domain:    comDomain,
-			Status:    entry.Status,
-			FromCache: true,
+			Domain:          comDomain,
+			Status:          entry.Status,
+			FromCache:       true,
+			ExpirationDate:  entry.ExpirationDate,
+			DaysUntilExpiry: entry.DaysUntilExpiry,
+			Registrar:       entry.Registrar,
 		})
 		return
 	}
@@ -841,9 +865,9 @@ func (h *Handler) CheckComSite(w http.ResponseWriter, r *http.Request) {
 	if h.nc != nil {
 		results, err := h.nc.CheckAvailability(r.Context(), []string{comDomain})
 		if err == nil && len(results) > 0 && results[0].Available {
-			// .com is available for registration
+			// .com is available for registration - no RDAP needed
 			status := ComSiteAvailable
-			cacheComSiteStatus(comDomain, status)
+			cacheComSiteStatus(comDomain, status, nil, nil, "")
 			writeJSON(w, http.StatusOK, CheckComResponse{
 				Domain:    comDomain,
 				Status:    status,
@@ -855,12 +879,31 @@ func (h *Handler) CheckComSite(w http.ResponseWriter, r *http.Request) {
 
 	// .com is taken - check if it has an active site
 	status := checkSiteStatus(r.Context(), comDomain)
-	cacheComSiteStatus(comDomain, status)
+
+	// Fetch RDAP info for expiration date (async-friendly, but we'll wait for it)
+	var expirationDate *string
+	var daysUntilExpiry *int
+	var registrar string
+
+	rdapInfo, err := h.rdap.Lookup(r.Context(), comDomain)
+	if err == nil && rdapInfo.Error == "" {
+		if rdapInfo.ExpirationDate != nil {
+			expStr := rdapInfo.ExpirationDate.Format("2006-01-02")
+			expirationDate = &expStr
+		}
+		daysUntilExpiry = rdapInfo.DaysUntilExpiry
+		registrar = rdapInfo.Registrar
+	}
+
+	cacheComSiteStatus(comDomain, status, expirationDate, daysUntilExpiry, registrar)
 
 	writeJSON(w, http.StatusOK, CheckComResponse{
-		Domain:    comDomain,
-		Status:    status,
-		FromCache: false,
+		Domain:          comDomain,
+		Status:          status,
+		FromCache:       false,
+		ExpirationDate:  expirationDate,
+		DaysUntilExpiry: daysUntilExpiry,
+		Registrar:       registrar,
 	})
 }
 
@@ -879,11 +922,14 @@ func extractBaseName(domain string) string {
 	return ""
 }
 
-func cacheComSiteStatus(domain string, status ComSiteStatus) {
+func cacheComSiteStatus(domain string, status ComSiteStatus, expirationDate *string, daysUntilExpiry *int, registrar string) {
 	comSiteCacheMu.Lock()
 	comSiteCache[domain] = &comSiteCacheEntry{
-		Status:    status,
-		CheckedAt: time.Now(),
+		Status:          status,
+		CheckedAt:       time.Now(),
+		ExpirationDate:  expirationDate,
+		DaysUntilExpiry: daysUntilExpiry,
+		Registrar:       registrar,
 	}
 	comSiteCacheMu.Unlock()
 }
@@ -991,4 +1037,58 @@ func checkSiteStatus(ctx context.Context, domain string) ComSiteStatus {
 	}
 
 	return ComSiteInactive
+}
+
+// RDAPRequest is the request body for RDAP lookups
+type RDAPRequest struct {
+	Domains []string `json:"domains"`
+}
+
+// RDAPResponse contains RDAP info for requested domains
+type RDAPResponse struct {
+	Results map[string]*rdap.CachedDomainInfo `json:"results"`
+	Error   string                            `json:"error,omitempty"`
+}
+
+// LookupRDAP returns RDAP info (expiration, registrar, etc.) for taken domains
+func (h *Handler) LookupRDAP(w http.ResponseWriter, r *http.Request) {
+	var req RDAPRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, RDAPResponse{Error: "Invalid request body"})
+		return
+	}
+
+	if len(req.Domains) == 0 {
+		writeJSON(w, http.StatusBadRequest, RDAPResponse{Error: "No domains provided"})
+		return
+	}
+
+	// Limit to 10 domains per request to avoid abuse
+	if len(req.Domains) > 10 {
+		req.Domains = req.Domains[:10]
+	}
+
+	results := make(map[string]*rdap.CachedDomainInfo)
+
+	// Check cache first
+	cached, uncached := h.rdapCache.GetMany(req.Domains)
+	for domain, info := range cached {
+		results[domain] = info
+	}
+
+	// Fetch uncached domains from RDAP
+	if len(uncached) > 0 {
+		freshResults := h.rdap.LookupMany(r.Context(), uncached)
+		for domain, info := range freshResults {
+			// Cache the result
+			h.rdapCache.Set(domain, info)
+			results[domain] = &rdap.CachedDomainInfo{
+				DomainInfo: info,
+				FromCache:  false,
+				CachedAt:   time.Now().Unix(),
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusOK, RDAPResponse{Results: results})
 }

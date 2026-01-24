@@ -145,6 +145,13 @@ func (s *Service) TrackChurn(ctx context.Context, userID, email string) {
 	}()
 }
 
+// TrackTabOpen records when a user opens a new search tab
+func (s *Service) TrackTabOpen(ctx context.Context, ipAddress string) {
+	go func() {
+		s.incrementDailyCounter(ctx, "tabs_opened")
+	}()
+}
+
 // GetDailyCount gets count for a metric on a specific date
 func (s *Service) GetDailyCount(ctx context.Context, metric, date string) (int64, error) {
 	result, err := s.db.GetItem(ctx, &dynamodb.GetItemInput{
@@ -518,6 +525,14 @@ func (m *MemoryService) TrackChurn(ctx context.Context, userID, email string) {
 	m.counters["churns#total"]++
 }
 
+func (m *MemoryService) TrackTabOpen(ctx context.Context, ipAddress string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	today := time.Now().Format("2006-01-02")
+	m.counters[fmt.Sprintf("tabs_opened#%s", today)]++
+	m.counters["tabs_opened#total"]++
+}
+
 func (m *MemoryService) GetDailyCount(ctx context.Context, metric, date string) (int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -610,6 +625,7 @@ type Analytics interface {
 	TrackSignup(ctx context.Context, userID, email string)
 	TrackUpgrade(ctx context.Context, userID, email string)
 	TrackChurn(ctx context.Context, userID, email string)
+	TrackTabOpen(ctx context.Context, ipAddress string)
 	GetDailyCount(ctx context.Context, metric, date string) (int64, error)
 	GetCountRange(ctx context.Context, metric, startDate, endDate string) (int64, error)
 	GetTotalCount(ctx context.Context, metric string) (int64, error)

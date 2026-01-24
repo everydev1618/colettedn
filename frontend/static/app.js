@@ -992,6 +992,10 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTabId = tab.id;
         renderTabBar();
         saveTabsToStorage();
+
+        // Track tab open (fire and forget)
+        fetch('/api/track/tab-open', { method: 'POST' }).catch(() => {});
+
         return tab;
     }
 
@@ -1490,7 +1494,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await checkComSite(domain);
                 if (result) {
                     // Update in place - replace button with status
-                    const statusHtml = getComStatusHtml(result.status, result.domain);
+                    const statusHtml = getComStatusHtml(result.status, result.domain, result.expirationDate, result.daysUntilExpiry);
                     btn.outerHTML = statusHtml;
                 } else {
                     btn.disabled = false;
@@ -1500,15 +1504,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function getComStatusHtml(status, comDomain) {
+    function getComStatusHtml(status, comDomain, expirationDate, daysUntilExpiry) {
+        // Format expiration info for taken domains
+        let expiryHtml = '';
+        if (daysUntilExpiry !== undefined && daysUntilExpiry !== null && status !== 'available') {
+            if (daysUntilExpiry <= 0) {
+                expiryHtml = '<span class="com-expiry expiring-soon">expired!</span>';
+            } else if (daysUntilExpiry <= 90) {
+                expiryHtml = `<span class="com-expiry expiring-soon">expires ${daysUntilExpiry}d</span>`;
+            } else if (expirationDate) {
+                // Format as "Mar 2025"
+                const date = new Date(expirationDate);
+                const month = date.toLocaleString('en-US', { month: 'short' });
+                const year = date.getFullYear();
+                expiryHtml = `<span class="com-expiry">exp ${month} ${year}</span>`;
+            }
+        }
+
         if (status === 'active') {
-            return `<span class="com-status com-active" title="${comDomain} has an active website">⚠ .com active</span>`;
+            return `<span class="com-status com-active" title="${comDomain} has an active website">⚠ .com active</span>${expiryHtml}`;
         } else if (status === 'parked') {
-            return `<span class="com-status com-parked" title="${comDomain} is parked/for sale">◐ .com parked</span>`;
+            return `<span class="com-status com-parked" title="${comDomain} is parked/for sale">◐ .com parked</span>${expiryHtml}`;
         } else if (status === 'available') {
             return `<span class="com-status com-available" title="${comDomain} is available!">✓ .com free</span>`;
         } else {
-            return `<span class="com-status com-inactive" title="${comDomain} has no active site">✓ .com clear</span>`;
+            return `<span class="com-status com-inactive" title="${comDomain} has no active site">✓ .com clear</span>${expiryHtml}`;
         }
     }
 
@@ -1567,7 +1587,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const comCheck = comSiteChecks.get(baseName);
                 if (comCheck) {
                     // Already checked - show result
-                    comCheckHtml = getComStatusHtml(comCheck.status, comCheck.domain);
+                    comCheckHtml = getComStatusHtml(comCheck.status, comCheck.domain, comCheck.expirationDate, comCheck.daysUntilExpiry);
                 } else {
                     // Not checked yet - show link
                     comCheckHtml = `<button class="check-com-btn" data-domain="${escapeHtml(domain.name)}" title="Check if ${baseName}.com has a website">check .com</button>`;
@@ -1641,7 +1661,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 comSiteChecks.set(baseName, {
                     status: data.status,
-                    domain: data.domain
+                    domain: data.domain,
+                    expirationDate: data.expirationDate,
+                    daysUntilExpiry: data.daysUntilExpiry,
+                    registrar: data.registrar
                 });
                 saveTabsToStorage();
                 return data;

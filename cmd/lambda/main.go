@@ -76,10 +76,12 @@ func init() {
 	mux.HandleFunc("POST /api/generate", h.GenerateDomains)
 	mux.HandleFunc("POST /api/check", h.CheckAvailability)
 	mux.HandleFunc("POST /api/check-com", h.CheckComSite)
+	mux.HandleFunc("POST /api/rdap", h.LookupRDAP)
 	mux.HandleFunc("GET /api/health", h.Health)
 	mux.HandleFunc("GET /api/stats", h.Stats)
 	mux.HandleFunc("POST /api/track/affiliate", h.TrackAffiliateClick)
 	mux.HandleFunc("POST /api/track/pageview", h.TrackPageView)
+	mux.HandleFunc("POST /api/track/tab-open", h.TrackTabOpen)
 	mux.HandleFunc("POST /api/generate-tab-title", h.GenerateTabTitle)
 
 	// Auth routes
