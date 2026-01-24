@@ -918,50 +918,50 @@ body {
     color: var(--cream-dim);
 }
 
-/* Domain Quality Score Bar */
+.domain-status.taken {
+    background: rgba(239, 83, 80, 0.1);
+    color: #ef5350;
+}
+
+/* Domain Quality Score - 5 Square Grid */
 .domain-score-bar {
-    width: 60px;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 3px;
-    overflow: hidden;
+    display: flex;
+    gap: 2px;
     cursor: help;
     flex-shrink: 0;
 }
 
-.domain-score-bar .score-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.3s ease;
+.score-square {
+    width: 8px;
+    height: 8px;
+    border-radius: 1px;
+    background: rgba(255, 255, 255, 0.1);
 }
 
-.domain-score-bar.score-great .score-fill {
-    background: var(--success);
+.score-square.filled {
+    background: rgba(255, 255, 255, 0.25);
 }
 
-.domain-score-bar.score-good .score-fill {
-    background: var(--gold);
-}
+/* Color intensity based on score level */
+.score-level-1 .score-square.filled { background: var(--cream-dim); }
+.score-level-2 .score-square.filled { background: var(--cream-dim); }
+.score-level-3 .score-square.filled { background: var(--gold); opacity: 0.7; }
+.score-level-4 .score-square.filled { background: var(--gold); }
+.score-level-5 .score-square.filled { background: var(--success); }
 
-.domain-score-bar.score-fair .score-fill {
-    background: var(--cream-dim);
-}
-
-[data-theme="light"] .domain-score-bar {
+[data-theme="light"] .score-square {
     background: rgba(0, 0, 0, 0.08);
 }
 
-[data-theme="light"] .domain-score-bar.score-great .score-fill {
-    background: #2d7a2d;
+[data-theme="light"] .score-square.filled {
+    background: rgba(0, 0, 0, 0.2);
 }
 
-[data-theme="light"] .domain-score-bar.score-good .score-fill {
-    background: #9a7d2e;
-}
-
-[data-theme="light"] .domain-score-bar.score-fair .score-fill {
-    background: rgba(0, 0, 0, 0.3);
-}
+[data-theme="light"] .score-level-1 .score-square.filled { background: rgba(0, 0, 0, 0.25); }
+[data-theme="light"] .score-level-2 .score-square.filled { background: rgba(0, 0, 0, 0.3); }
+[data-theme="light"] .score-level-3 .score-square.filled { background: #9a7d2e; opacity: 0.7; }
+[data-theme="light"] .score-level-4 .score-square.filled { background: #9a7d2e; }
+[data-theme="light"] .score-level-5 .score-square.filled { background: #2d7a2d; }
 
 .domain-price {
     font-family: var(--font-mono);
@@ -4067,6 +4067,161 @@ body {
 
     .search-phrase-copy {
         margin-left: auto;
+    }
+}
+
+/* ==========================================================================
+   Searched Domain Section (TLD Variations)
+   ========================================================================== */
+
+.searched-domain-section {
+    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    background: rgba(196, 168, 85, 0.05);
+    border: 1px solid rgba(196, 168, 85, 0.2);
+    border-radius: 8px;
+}
+
+.searched-domain-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.searched-domain-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--gold);
+}
+
+.searched-domain-subtitle {
+    font-size: 0.8rem;
+    color: var(--cream-dim);
+    opacity: 0.7;
+}
+
+.searched-domain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.searched-domain-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.searched-domain-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.searched-domain-card.available {
+    border-color: rgba(107, 158, 103, 0.3);
+    background: rgba(107, 158, 103, 0.05);
+}
+
+.searched-domain-card.available:hover {
+    border-color: rgba(107, 158, 103, 0.5);
+}
+
+.searched-domain-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.searched-domain-name {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    color: var(--cream);
+    font-weight: 500;
+}
+
+.searched-domain-card.taken .searched-domain-name {
+    color: var(--cream-dim);
+}
+
+.searched-domain-status {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+}
+
+.searched-domain-status.available {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.searched-domain-status.taken {
+    background: rgba(199, 95, 95, 0.1);
+    color: var(--error);
+}
+
+.searched-domain-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 1.5rem;
+    font-size: 0.75rem;
+}
+
+.searched-registrar {
+    color: var(--cream-dim);
+    opacity: 0.6;
+}
+
+.searched-register-btn {
+    margin-top: 0.25rem;
+    padding: 0.5rem 1rem;
+    background: var(--success);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.searched-register-btn:hover {
+    background: #5a8a55;
+}
+
+[data-theme="light"] .searched-domain-section {
+    background: rgba(154, 125, 46, 0.05);
+    border-color: rgba(154, 125, 46, 0.2);
+}
+
+[data-theme="light"] .searched-domain-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .searched-domain-card.available {
+    background: rgba(45, 122, 45, 0.05);
+    border-color: rgba(45, 122, 45, 0.2);
+}
+
+@media (max-width: 600px) {
+    .searched-domain-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .searched-domain-section {
+        padding: 1rem;
     }
 }
 

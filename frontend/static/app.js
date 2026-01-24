@@ -1041,6 +1041,69 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<span class="${badgeClass}">${displayText}</span>`;
     }
 
+    function renderSearchedDomainSection(searchedDomain, description) {
+        if (!searchedDomain || searchedDomain.length === 0) {
+            return '';
+        }
+
+        // Extract base name from the first domain for the header
+        const baseName = searchedDomain[0].name.split('.')[0];
+
+        const cards = searchedDomain.map(d => {
+            const isAvailable = d.available;
+            const statusClass = isAvailable ? 'available' : 'taken';
+            const statusText = isAvailable ? 'Available' : 'Taken';
+
+            // Expiry info for taken domains
+            let expiryHtml = '';
+            if (!isAvailable && d.daysUntilExpiry !== null && d.daysUntilExpiry !== undefined) {
+                const expiryBadge = formatExpiryBadge(d.daysUntilExpiry, d.expirationDate);
+                expiryHtml = expiryBadge;
+            }
+
+            // Registrar info
+            const registrarHtml = !isAvailable && d.registrar
+                ? `<span class="searched-registrar">${escapeHtml(d.registrar)}</span>`
+                : '';
+
+            // Register button for available domains
+            let actionHtml = '';
+            if (isAvailable) {
+                actionHtml = `
+                    <button class="searched-register-btn" data-domain="${escapeHtml(d.name)}">
+                        Register
+                    </button>
+                `;
+            }
+
+            return `
+                <div class="searched-domain-card ${statusClass}">
+                    <div class="searched-domain-info">
+                        <span class="searched-domain-name">${escapeHtml(d.name)}</span>
+                        <span class="searched-domain-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="searched-domain-meta">
+                        ${expiryHtml}
+                        ${registrarHtml}
+                    </div>
+                    ${actionHtml}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="searched-domain-section">
+                <div class="searched-domain-header">
+                    <h3 class="searched-domain-title">Your Search: ${escapeHtml(baseName)}</h3>
+                    <span class="searched-domain-subtitle">TLD variations</span>
+                </div>
+                <div class="searched-domain-grid">
+                    ${cards}
+                </div>
+            </div>
+        `;
+    }
+
     function renderUnavailableSection(unavailable) {
         if (!unavailable || unavailable.length === 0) {
             return '';
@@ -1712,6 +1775,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Results come back with availability already checked
             tab.categories = data.categories || {};
             tab.unavailable = data.unavailable || [];
+            tab.searchedDomain = data.searchedDomain || [];
             tab.rounds = data.rounds || 1;
             tab.isLoading = false;
             tab.error = null;
@@ -1816,10 +1880,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Results CTA removed - let users enjoy results without being pushed to upgrade
 
+        // Render searched domain section (for domain mode searches)
+        const searchedDomainHtml = renderSearchedDomainSection(tab.searchedDomain, tab.description);
+
         // Render unavailable domains section
         const unavailableHtml = renderUnavailableSection(tab.unavailable);
 
-        resultsEl.innerHTML = searchPhraseHtml + sectionsHtml + unavailableHtml;
+        resultsEl.innerHTML = searchPhraseHtml + searchedDomainHtml + sectionsHtml + unavailableHtml;
         resultsEl.hidden = false;
         welcomeContent.hidden = true;
 
@@ -1860,6 +1927,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Register button click handlers - open registration view
         resultsEl.querySelectorAll('.domain-register-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const domain = btn.dataset.domain;
+                if (domain && typeof showRegistrationView === 'function') {
+                    showRegistrationView(domain);
+                }
+            });
+        });
+
+        // Searched domain register button handlers
+        resultsEl.querySelectorAll('.searched-register-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const domain = btn.dataset.domain;
                 if (domain && typeof showRegistrationView === 'function') {
@@ -1990,18 +2067,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderDomainCard(domain, index, categories) {
         let metaHtml = '';
 
-        const statusClass = domain.available === false ? 'taken' : 'available';
-        const statusText = domain.available === null ? 'Verify' : 'Available';
+        const statusClass = domain.available === false ? 'taken' : (domain.available === true ? 'available' : 'unverified');
+        const statusText = domain.available === true ? 'Available' : (domain.available === false ? 'Taken' : 'Verify');
 
         metaHtml = `<span class="domain-status ${statusClass}">${statusText}</span>`;
 
-        // Build score bar HTML if score available
+        // Build score squares HTML if score available
         let scoreBarHtml = '';
         if (domain.score) {
-            const scoreClass = domain.score >= 80 ? 'score-great' : domain.score >= 65 ? 'score-good' : 'score-fair';
+            // Convert 0-100 score to 1-5 squares
+            const filledSquares = Math.ceil(domain.score / 20);
+            const labels = ['', 'Bad', 'Just OK', 'Average', 'Doable', 'Grab it!'];
+            const label = labels[filledSquares] || '';
+            let squares = '';
+            for (let i = 1; i <= 5; i++) {
+                squares += `<div class="score-square ${i <= filledSquares ? 'filled' : ''}"></div>`;
+            }
             scoreBarHtml = `
-                <div class="domain-score-bar ${scoreClass}" title="Quality score: ${domain.score}/100">
-                    <div class="score-fill" style="width: ${domain.score}%"></div>
+                <div class="domain-score-bar score-level-${filledSquares}" title="${label} (${domain.score}/100)">
+                    ${squares}
                 </div>`;
         }
 

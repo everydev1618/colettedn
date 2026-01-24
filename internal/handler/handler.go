@@ -94,6 +94,7 @@ type GenerateRequest struct {
 }
 
 type GenerateResponse struct {
+	SearchedDomain   []SearchedDomainResult    `json:"searchedDomain,omitempty"` // TLD variations when searching for a specific domain
 	Categories       map[string][]DomainResult `json:"categories"`
 	Unavailable      []UnavailableDomain       `json:"unavailable,omitempty"`
 	Rounds           int                       `json:"rounds"`
@@ -101,6 +102,16 @@ type GenerateResponse struct {
 	UpgradeAvailable bool                      `json:"upgradeAvailable,omitempty"`
 	// Usage info for free users
 	Usage *UsageInfo `json:"usage,omitempty"`
+}
+
+// SearchedDomainResult represents a TLD variation of the searched domain
+type SearchedDomainResult struct {
+	Name            string  `json:"name"`
+	Available       bool    `json:"available"`
+	ExpirationDate  *string `json:"expirationDate,omitempty"`
+	DaysUntilExpiry *int    `json:"daysUntilExpiry,omitempty"`
+	Registrar       string  `json:"registrar,omitempty"`
+	Score           int     `json:"score"`
 }
 
 // UnavailableDomain represents a taken domain with expiry info
@@ -448,6 +459,72 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Generate TLD variations for the searched domain when in domain mode
+	var searchedDomainResults []SearchedDomainResult
+	if isDomainMode {
+		baseName := extractDomainBase(req.Description)
+		if baseName != "" {
+			// TLDs to check, in order of preference
+			searchTLDs := []string{".com", ".io", ".co", ".net", ".org", ".ai", ".app", ".dev", ".me", ".xyz", ".tech"}
+			var searchedDomains []string
+			for _, tld := range searchTLDs {
+				searchedDomains = append(searchedDomains, baseName+tld)
+			}
+
+			// Check availability of all TLD variations
+			searchAvailMap, _ := h.checkDomainsAvailability(r, searchedDomains)
+
+			// Collect domains for RDAP lookup (taken ones)
+			var takenSearchDomains []string
+			for _, d := range searchedDomains {
+				if info, ok := searchAvailMap[d]; ok && !info.available {
+					takenSearchDomains = append(takenSearchDomains, d)
+				}
+			}
+
+			// Batch fetch RDAP data for taken domains
+			var rdapInfoMap map[string]*rdap.DomainInfo
+			if len(takenSearchDomains) > 0 {
+				rdapInfoMap = h.rdap.LookupMany(r.Context(), takenSearchDomains)
+			}
+
+			// Build results
+			for _, d := range searchedDomains {
+				result := SearchedDomainResult{
+					Name:  d,
+					Score: scoreDomain(d),
+				}
+
+				if info, ok := searchAvailMap[d]; ok {
+					result.Available = info.available
+					if !info.available && rdapInfoMap != nil {
+						if rdapInfo, ok := rdapInfoMap[d]; ok && rdapInfo.Error == "" {
+							if rdapInfo.ExpirationDate != nil {
+								expStr := rdapInfo.ExpirationDate.Format("2006-01-02")
+								result.ExpirationDate = &expStr
+							}
+							result.DaysUntilExpiry = rdapInfo.DaysUntilExpiry
+							result.Registrar = rdapInfo.Registrar
+						}
+					}
+				}
+
+				searchedDomainResults = append(searchedDomainResults, result)
+			}
+
+			// Sort: available first, then by TLD preference (already in order)
+			// Stable sort to preserve TLD order within available/taken groups
+			for i := 0; i < len(searchedDomainResults)-1; i++ {
+				for j := i + 1; j < len(searchedDomainResults); j++ {
+					// Available domains should come before taken ones
+					if !searchedDomainResults[i].Available && searchedDomainResults[j].Available {
+						searchedDomainResults[i], searchedDomainResults[j] = searchedDomainResults[j], searchedDomainResults[i]
+					}
+				}
+			}
+		}
+	}
+
 	// Process taken .com domains for the "Unavailable" section
 	// Sort by score (descending) and take top 10
 	if len(takenComDomains) > 0 {
@@ -510,9 +587,10 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 
 	// Build response with usage info
 	response := GenerateResponse{
-		Categories:  availableByCategory,
-		Unavailable: takenComDomains,
-		Rounds:      rounds,
+		SearchedDomain: searchedDomainResults,
+		Categories:     availableByCategory,
+		Unavailable:    takenComDomains,
+		Rounds:         rounds,
 	}
 
 	// Include usage info for tracking
@@ -826,6 +904,27 @@ func isDomainIdea(input string) bool {
 	}
 
 	return false
+}
+
+// extractDomainBase extracts the base name from a domain (e.g., "dropjoy" from "dropjoy.com")
+func extractDomainBase(input string) string {
+	input = strings.TrimSpace(strings.ToLower(input))
+
+	// Common TLDs to check for (multi-part first)
+	tlds := []string{".co.uk", ".com.au", ".co.za", ".com", ".io", ".co", ".net", ".org", ".ai", ".app", ".dev", ".me", ".xyz", ".tech", ".site", ".online", ".de", ".eu", ".ca"}
+
+	for _, tld := range tlds {
+		if strings.HasSuffix(input, tld) {
+			return strings.TrimSuffix(input, tld)
+		}
+	}
+
+	// If no known TLD, try to split on last dot
+	if idx := strings.LastIndex(input, "."); idx > 0 {
+		return input[:idx]
+	}
+
+	return input
 }
 
 // ComSiteStatus represents the status of a .com domain's website
