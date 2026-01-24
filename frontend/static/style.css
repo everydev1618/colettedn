@@ -606,6 +606,10 @@ body {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
+.tld-custom-panel[hidden] {
+    display: none;
+}
+
 .tld-custom-chips {
     display: flex;
     flex-wrap: wrap;
@@ -654,6 +658,32 @@ body {
 
 .tld-custom-done:hover {
     background: var(--cream);
+}
+
+@media (max-width: 900px) {
+    .tld-custom-panel {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin-top: 0;
+        border-radius: 12px 12px 0 0;
+        padding: 1rem 1.25rem 1.5rem;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tld-custom-chips {
+        justify-content: center;
+    }
+
+    .tld-custom-done {
+        margin-top: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.75rem;
+    }
+
 }
 
 /* Make search-form position relative for panel positioning */

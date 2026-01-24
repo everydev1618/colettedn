@@ -67,7 +67,9 @@ export async function renderHistoryView() {
         dom.historyList.innerHTML = histories.map((h, i) => {
             const date = new Date(h.searchedAt);
             const dateStr = formatHistoryDate(date);
-            const tldLabel = h.tldStyle === 'creative' ? '.io .ai' : '.com .co';
+            const tldLabel = h.tldStyle === 'creative' ? '.io .ai' :
+                            h.tldStyle === 'global' ? '.co.uk .de' :
+                            h.tldStyle === 'custom' ? 'Custom' : '.com .co';
 
             // Get all domains across all categories
             const allDomains = [];
