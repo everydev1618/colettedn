@@ -43,15 +43,23 @@ jobs:
       - name: Copy frontend for embedding
         run: cp -r frontend cmd/lambda/
 
-      - name: Build Lambda function
+      - name: Build Lambda functions
         run: |
+          # Build main API function
           cd cmd/lambda
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o bootstrap .
+          cd ../..
+
+          # Build notifier function
+          cd cmd/notifier
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o bootstrap .
 
       - name: Package for SAM
         run: |
           mkdir -p .aws-sam/build/ColetteDNFunction
+          mkdir -p .aws-sam/build/NotifierFunction
           cp cmd/lambda/bootstrap .aws-sam/build/ColetteDNFunction/
+          cp cmd/notifier/bootstrap .aws-sam/build/NotifierFunction/
           cp template.yaml .aws-sam/build/template.yaml
 
       - name: SAM Deploy
