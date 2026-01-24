@@ -2,13 +2,23 @@
 // Falls back to relative path if not set
 const FUNCTION_URL = 'https://4tpzgbt5zo7kade7egg5uu75jy0inpuj.lambda-url.us-east-1.on.aws/';
 
+// Theme handling - initialize early to prevent flash
+(function() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+})();
+
 // Auth state
 let authToken = localStorage.getItem('authToken');
 let currentUser = null;
 let userFavorites = new Set();
 let userOwnedDomains = new Map(); // domain -> { acquisitionType, createdAt }
 let usageInfo = null; // { used, limit, unlimited }
-let comSiteChecks = new Map(); // baseName -> { status, domain }
+
+// Tab state
+let tabs = [];          // Array of tab objects
+let activeTabId = null; // Currently active tab
+let tabCounter = 0;     // For unique IDs
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('generate-form');
@@ -88,6 +98,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const ownedDomainName = document.getElementById('owned-domain-name');
     const ownedError = document.getElementById('owned-error');
     let pendingOwnedDomain = null;
+
+    // Theme toggle elements
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    const themeToggleDropdown = document.getElementById('theme-toggle-dropdown');
+
+    // Tab bar elements
+    const tabBar = document.getElementById('tab-bar');
+    const tabList = document.getElementById('tab-list');
+    const tabNewBtn = document.getElementById('tab-new-btn');
+
+    // Per-session .com site checks (moved from global since it's per-tab now)
+    let comSiteChecks = new Map(); // baseName -> { status, domain }
+
+    // Theme toggle functionality
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+
+        // Sync with server if logged in
+        if (authToken) {
+            apiFetch('/api/user/preferences', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: newTheme })
+            }).catch(err => console.error('Failed to save theme preference:', err));
+        }
+    }
+
+    // Apply theme from user account (called after login)
+    function applyUserTheme(theme) {
+        if (theme && (theme === 'light' || theme === 'dark')) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+        }
+    }
+
+    themeToggleBtn.addEventListener('click', toggleTheme);
+    themeToggleDropdown.addEventListener('click', toggleTheme);
 
     // Maintenance mode handling
     let maintenanceTimer = null;
@@ -425,8 +475,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Re-render to show owned badge
                     if (!favoritesView.hidden) {
                         renderFavoritesView();
-                    } else if (Object.keys(categories).length > 0) {
-                        renderResults(1);
+                    } else {
+                        const activeTab = getActiveTab();
+                        if (activeTab && Object.keys(activeTab.categories).length > 0) {
+                            renderResultsForTab(activeTab);
+                        }
                     }
                 } else {
                     const data = await response.json();
@@ -478,8 +531,9 @@ document.addEventListener('DOMContentLoaded', () => {
         userDropdown.classList.remove('open');
         favoritesView.hidden = true;
         historyView.hidden = true;
-        if (Object.keys(categories).length > 0) {
-            resultsEl.hidden = false;
+        const activeTab = getActiveTab();
+        if (activeTab && Object.keys(activeTab.categories).length > 0) {
+            switchToTab(activeTab.id);
         } else {
             welcomeContent.hidden = false;
         }
@@ -518,8 +572,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideFavoritesView() {
         favoritesView.hidden = true;
         historyView.hidden = true;
-        if (Object.keys(categories).length > 0) {
-            resultsEl.hidden = false;
+        const activeTab = getActiveTab();
+        if (activeTab && Object.keys(activeTab.categories).length > 0) {
+            switchToTab(activeTab.id);
         } else {
             welcomeContent.hidden = false;
         }
@@ -542,8 +597,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideHistoryView() {
         historyView.hidden = true;
         favoritesView.hidden = true;
-        if (Object.keys(categories).length > 0) {
-            resultsEl.hidden = false;
+        const activeTab = getActiveTab();
+        if (activeTab && Object.keys(activeTab.categories).length > 0) {
+            switchToTab(activeTab.id);
         } else {
             welcomeContent.hidden = false;
         }
@@ -848,8 +904,236 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Store categorized results
-    let categories = {};
+    // =========================================================================
+    // Tab Management
+    // =========================================================================
+
+    function createTab(description = '', tldStyle = 'traditional') {
+        tabCounter++;
+        const tab = {
+            id: `tab-${tabCounter}`,
+            description: description,
+            tldStyle: tldStyle,
+            categories: {},
+            isLoading: false,
+            error: null,
+            rounds: 1,
+            comSiteChecks: new Map()
+        };
+
+        // Max 10 tabs - remove oldest if exceeded
+        if (tabs.length >= 10) {
+            const oldestTab = tabs.shift();
+            if (activeTabId === oldestTab.id) {
+                activeTabId = null;
+            }
+        }
+
+        tabs.push(tab);
+        activeTabId = tab.id;
+        renderTabBar();
+        saveTabsToStorage();
+        return tab;
+    }
+
+    function getActiveTab() {
+        return tabs.find(t => t.id === activeTabId) || null;
+    }
+
+    function switchToTab(tabId) {
+        const tab = tabs.find(t => t.id === tabId);
+        if (!tab) return;
+
+        activeTabId = tabId;
+        comSiteChecks = tab.comSiteChecks;
+        renderTabBar();
+        saveTabsToStorage();
+
+        // Hide other views
+        favoritesView.hidden = true;
+        historyView.hidden = true;
+        welcomeContent.hidden = true;
+        const regView = document.getElementById('registration-view');
+        if (regView) regView.hidden = true;
+
+        // Show tab content
+        if (tab.isLoading) {
+            resultsEl.innerHTML = `
+                <div class="searching-state">
+                    <div class="search-animation">
+                        <div class="orbit">
+                            <div class="orbit-dot"></div>
+                            <div class="orbit-dot"></div>
+                            <div class="orbit-dot"></div>
+                        </div>
+                        <div class="orbit orbit-reverse">
+                            <div class="orbit-dot"></div>
+                            <div class="orbit-dot"></div>
+                        </div>
+                        <div class="search-icon">◇</div>
+                    </div>
+                    <p class="search-text">Searching for available domains<span class="search-dots"></span></p>
+                    <p class="search-subtext">May run up to 5 rounds to find the best options</p>
+                    <div class="tld-parade">
+                        <span>.com</span><span>.io</span><span>.co</span><span>.dev</span><span>.app</span><span>.ai</span>
+                    </div>
+                </div>`;
+            resultsEl.hidden = false;
+        } else if (tab.error) {
+            resultsEl.innerHTML = `<p class="error-message">${escapeHtml(tab.error)}</p>`;
+            resultsEl.hidden = false;
+        } else if (Object.keys(tab.categories).length > 0) {
+            renderResultsForTab(tab);
+            resultsEl.hidden = false;
+        } else {
+            // Empty tab - show welcome but keep tab bar visible
+            resultsEl.hidden = true;
+            welcomeContent.hidden = false;
+        }
+    }
+
+    function closeTab(tabId) {
+        const index = tabs.findIndex(t => t.id === tabId);
+        if (index === -1) return;
+
+        tabs.splice(index, 1);
+        saveTabsToStorage();
+
+        if (tabs.length === 0) {
+            // No tabs left - show welcome
+            activeTabId = null;
+            tabBar.hidden = true;
+            showWelcomeContent();
+        } else if (activeTabId === tabId) {
+            // Closed active tab - switch to nearest
+            const newIndex = Math.min(index, tabs.length - 1);
+            switchToTab(tabs[newIndex].id);
+        } else {
+            renderTabBar();
+        }
+    }
+
+    function renderTabBar() {
+        if (tabs.length === 0) {
+            tabBar.hidden = true;
+            return;
+        }
+
+        tabBar.hidden = false;
+
+        tabList.innerHTML = tabs.map(tab => {
+            const isActive = tab.id === activeTabId;
+            const title = tab.description
+                ? (tab.description.length > 20 ? tab.description.substring(0, 20) + '...' : tab.description)
+                : 'New Search';
+
+            return `
+                <button class="tab${isActive ? ' active' : ''}" data-tab-id="${tab.id}">
+                    ${tab.isLoading ? '<span class="tab-spinner"></span>' : ''}
+                    <span class="tab-title">${escapeHtml(title)}</span>
+                    <span class="tab-close" data-tab-id="${tab.id}">&times;</span>
+                </button>
+            `;
+        }).join('');
+
+        // Add tab click handlers
+        tabList.querySelectorAll('.tab').forEach(tabEl => {
+            tabEl.addEventListener('click', (e) => {
+                // Don't switch if clicking close button
+                if (e.target.classList.contains('tab-close')) return;
+                switchToTab(tabEl.dataset.tabId);
+            });
+        });
+
+        // Add close button handlers
+        tabList.querySelectorAll('.tab-close').forEach(closeBtn => {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeTab(closeBtn.dataset.tabId);
+            });
+        });
+    }
+
+    // =========================================================================
+    // Tab Persistence (localStorage)
+    // =========================================================================
+
+    function saveTabsToStorage() {
+        try {
+            // Convert tabs to serializable format (Maps become arrays)
+            const serializableTabs = tabs.map(tab => ({
+                ...tab,
+                comSiteChecks: Array.from(tab.comSiteChecks.entries())
+            }));
+            localStorage.setItem('colette_tabs', JSON.stringify({
+                tabs: serializableTabs,
+                activeTabId: activeTabId,
+                tabCounter: tabCounter
+            }));
+        } catch (err) {
+            console.error('Failed to save tabs:', err);
+        }
+    }
+
+    function loadTabsFromStorage() {
+        try {
+            const stored = localStorage.getItem('colette_tabs');
+            if (!stored) return false;
+
+            const data = JSON.parse(stored);
+            if (!data.tabs || !Array.isArray(data.tabs)) return false;
+
+            // Restore tabs with Maps
+            tabs = data.tabs.map(tab => ({
+                ...tab,
+                comSiteChecks: new Map(tab.comSiteChecks || []),
+                isLoading: false // Reset loading state on page load
+            }));
+
+            tabCounter = data.tabCounter || tabs.length;
+            activeTabId = data.activeTabId;
+
+            // Verify active tab still exists
+            if (activeTabId && !tabs.find(t => t.id === activeTabId)) {
+                activeTabId = tabs.length > 0 ? tabs[0].id : null;
+            }
+
+            if (tabs.length > 0) {
+                renderTabBar();
+                if (activeTabId) {
+                    const activeTab = getActiveTab();
+                    if (activeTab) {
+                        comSiteChecks = activeTab.comSiteChecks;
+                        if (Object.keys(activeTab.categories).length > 0) {
+                            renderResultsForTab(activeTab);
+                        }
+                    }
+                }
+                return true;
+            }
+        } catch (err) {
+            console.error('Failed to load tabs:', err);
+            localStorage.removeItem('colette_tabs');
+        }
+        return false;
+    }
+
+    // Load tabs on page load
+    const hadStoredTabs = loadTabsFromStorage();
+
+    // New tab button handler
+    tabNewBtn.addEventListener('click', () => {
+        createTab();
+        document.getElementById('description').value = '';
+        document.getElementById('description').focus();
+        // Show welcome content for the new empty tab
+        resultsEl.hidden = true;
+        welcomeContent.hidden = false;
+        favoritesView.hidden = true;
+        historyView.hidden = true;
+        const regView = document.getElementById('registration-view');
+        if (regView) regView.hidden = true;
+    });
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -869,11 +1153,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const regView = document.getElementById('registration-view');
         if (regView) regView.hidden = true;
 
+        // Determine if we should create a new tab or reuse active
+        let tab = getActiveTab();
+        const shouldCreateNewTab = !tab || Object.keys(tab.categories).length > 0 || tab.error;
+
+        if (shouldCreateNewTab) {
+            tab = createTab(description, tldStyle);
+        } else {
+            // Reuse empty tab
+            tab.description = description;
+            tab.tldStyle = tldStyle;
+            renderTabBar();
+        }
+
         // Show loading state
         submitBtn.disabled = true;
         btnText.hidden = true;
         btnLoading.hidden = false;
-        categories = {};
+        tab.categories = {};
+        tab.error = null;
+        tab.isLoading = true;
+        comSiteChecks = tab.comSiteChecks;
+        renderTabBar();
+
         resultsEl.innerHTML = `
             <div class="searching-state">
                 <div class="search-animation">
@@ -907,6 +1209,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Handle service unavailable (kill switch active)
             if (response.status === 503) {
+                tab.isLoading = false;
+                renderTabBar();
                 showMaintenanceMode();
                 return;
             }
@@ -915,38 +1219,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Handle rate limiting - show upgrade modal if available
             if (response.status === 429) {
+                tab.isLoading = false;
+                tab.error = data.error || 'Too many requests. Please wait a moment.';
+                renderTabBar();
                 if (data.upgradeAvailable && authToken) {
                     openUpgradeModal();
                 } else if (data.upgradeAvailable && !authToken) {
                     // Show login first, then upgrade
                     openLoginModal();
                 } else {
-                    showError(data.error || 'Too many requests. Please wait a moment.');
+                    showErrorForTab(tab);
                 }
                 return;
             }
 
             if (data.error) {
-                showError(data.error);
+                tab.isLoading = false;
+                tab.error = data.error;
+                renderTabBar();
+                showErrorForTab(tab);
                 return;
             }
 
             // Results come back with availability already checked
-            categories = data.categories || {};
-            const rounds = data.rounds || 1;
+            tab.categories = data.categories || {};
+            tab.rounds = data.rounds || 1;
+            tab.isLoading = false;
+            tab.error = null;
 
             // Capture usage info
             if (data.usage) {
                 usageInfo = data.usage;
             }
 
-            renderResults(rounds);
+            renderTabBar();
+            renderResultsForTab(tab);
+            saveTabsToStorage();
 
             // Save to history if logged in
-            saveSearchHistory(description, tldStyle, categories);
+            saveSearchHistory(description, tldStyle, tab.categories);
 
         } catch (err) {
-            showError('Failed to generate domains. Please try again.');
+            tab.isLoading = false;
+            tab.error = 'Failed to generate domains. Please try again.';
+            renderTabBar();
+            showErrorForTab(tab);
+            saveTabsToStorage();
             console.error(err);
         } finally {
             submitBtn.disabled = false;
@@ -955,7 +1273,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function showErrorForTab(tab) {
+        if (activeTabId !== tab.id) return;
+        resultsEl.innerHTML = `<p class="error-message">${escapeHtml(tab.error)}</p>`;
+        welcomeContent.hidden = true;
+        resultsEl.hidden = false;
+    }
+
+    // Convenience wrapper for old code that calls renderResults
     function renderResults(rounds) {
+        const tab = getActiveTab();
+        if (tab) {
+            renderResultsForTab(tab);
+        }
+    }
+
+    function renderResultsForTab(tab) {
+        if (activeTabId !== tab.id) return; // Don't render if not active
+
+        const categories = tab.categories;
+        const rounds = tab.rounds || 1;
         const categoryOrder = ['Professional', 'Playful', 'Creative', 'Minimal'];
         const totalDomains = Object.values(categories).flat().length;
         const isPro = currentUser && currentUser.subscriptionTier === 'pro';
@@ -973,7 +1310,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Put the rounds badge after the first category title
                 const badge = idx === 0 ? roundsBadge : '';
                 const gridContent = domains.length > 0
-                    ? domains.map((d, i) => renderDomainCard(d, i)).join('')
+                    ? domains.map((d, i) => renderDomainCard(d, i, categories)).join('')
                     : '<div class="empty-category">No available domains found</div>';
                 return `
                     <section class="category${domains.length === 0 ? ' category-empty' : ''}">
@@ -993,6 +1330,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Results CTA removed - let users enjoy results without being pushed to upgrade
 
         resultsEl.innerHTML = sectionsHtml;
+        resultsEl.hidden = false;
+        welcomeContent.hidden = true;
 
         // Add refresh button handlers
         resultsEl.querySelectorAll('.cache-refresh').forEach(btn => {
@@ -1037,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 await removeOwnedDomain(btn.dataset.domain);
-                renderResults(1);
+                renderResultsForTab(tab);
             });
         });
 
@@ -1075,7 +1414,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function isComInResults(baseName) {
+    function isComInResults(baseName, categories) {
         // Check if {baseName}.com is already in the results
         const comDomain = baseName + '.com';
         for (const cat of Object.values(categories)) {
@@ -1086,13 +1425,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     }
 
-    function renderDomainCard(domain, index) {
+    function renderDomainCard(domain, index, categories) {
         let metaHtml = '';
 
         const statusClass = domain.available === false ? 'taken' : 'available';
         const statusText = domain.available === null ? 'Verify' : 'Available';
 
         metaHtml = `<span class="domain-status ${statusClass}">${statusText}</span>`;
+
+        // Add score indicator if available
+        if (domain.score) {
+            const scoreClass = domain.score >= 80 ? 'score-great' : domain.score >= 65 ? 'score-good' : 'score-fair';
+            metaHtml += `<span class="domain-score ${scoreClass}" title="Quality score: ${domain.score}/100">${domain.score}</span>`;
+        }
 
         if (domain.isPremium) {
             metaHtml += '<span class="domain-premium">Premium</span>';
@@ -1113,7 +1458,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isComDomain) {
             const baseName = extractBaseName(domain.name);
             // Don't show check .com if the .com is already in results (it's available)
-            if (isComInResults(baseName)) {
+            if (isComInResults(baseName, categories)) {
                 // .com is in results, no need to check
                 comCheckHtml = '';
             } else {
@@ -1195,6 +1540,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     status: data.status,
                     domain: data.domain
                 });
+                saveTabsToStorage();
                 return data;
             }
         } catch (err) {
@@ -1204,6 +1550,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function refreshDomain(domainName) {
+        const tab = getActiveTab();
+        if (!tab) return;
+
+        const categories = tab.categories;
+
         // Find and mark as checking
         Object.keys(categories).forEach(cat => {
             const domain = categories[cat].find(d => d.name.toLowerCase() === domainName.toLowerCase());
@@ -1212,7 +1563,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 domain.fromCache = false;
             }
         });
-        renderResults(1);
+        renderResultsForTab(tab);
 
         try {
             const response = await fetch('/api/check', {
@@ -1244,7 +1595,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
-            renderResults(1);
+            renderResultsForTab(tab);
+            saveTabsToStorage();
         } catch (err) {
             console.error('Refresh error:', err);
         }
@@ -1482,7 +1834,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentRegistrationDomain = null;
     let userPreferredRegistrar = null;
 
-    // Load user's preferred registrar from server when logged in
+    // Load user's preferences from server when logged in
     async function loadUserPreferences() {
         if (!authToken) return;
         try {
@@ -1490,6 +1842,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const data = await response.json();
                 userPreferredRegistrar = data.preferredRegistrar || null;
+                // Apply user's saved theme preference
+                if (data.theme) {
+                    applyUserTheme(data.theme);
+                }
             }
         } catch (err) {
             console.error('Failed to load preferences:', err);
@@ -1555,8 +1911,9 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRegistrationDomain = null;
 
         // Show results if we have them, otherwise welcome
-        if (Object.keys(categories).length > 0) {
-            resultsEl.hidden = false;
+        const activeTab = getActiveTab();
+        if (activeTab && Object.keys(activeTab.categories).length > 0) {
+            switchToTab(activeTab.id);
         } else {
             welcomeContent.hidden = false;
         }
@@ -1607,7 +1964,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRegistrarCards(domain) {
         const registrarOrder = ['namecheap', 'godaddy', 'porkbun'];
 
-        registrarCards.innerHTML = registrarOrder.map((id, index) => {
+        const mainCards = registrarOrder.map((id, index) => {
             const registrar = REGISTRARS[id];
             const isPreferred = userPreferredRegistrar === id;
             const url = getRegistrarUrl(domain, registrar);
@@ -1629,8 +1986,37 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }).join('');
 
+        // Add "Other" card
+        const otherCard = `
+            <div class="registrar-card registrar-card-other" style="animation-delay: ${registrarOrder.length * 0.05}s" data-domain="${escapeHtml(domain)}">
+                <div class="other-collapsed">
+                    <div class="registrar-info">
+                        <div class="registrar-name">Other</div>
+                        <div class="registrar-tagline">Use a different registrar</div>
+                    </div>
+                    <div class="registrar-right">
+                        <button type="button" class="registrar-btn other-expand-btn">
+                            Choose &rarr;
+                        </button>
+                    </div>
+                </div>
+                <div class="other-expanded" hidden>
+                    <div class="other-input-row">
+                        <label class="other-label">Which registrar do you prefer?</label>
+                        <input type="text" class="other-input" placeholder="e.g., Cloudflare, Hover, Google..." autocomplete="off">
+                    </div>
+                    <div class="other-actions">
+                        <button type="button" class="other-cancel-btn">Cancel</button>
+                        <button type="button" class="registrar-btn other-copy-btn" disabled>Copy domain</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        registrarCards.innerHTML = mainCards + otherCard;
+
         // Add click handlers for tracking and preference saving
-        registrarCards.querySelectorAll('.registrar-btn').forEach(btn => {
+        registrarCards.querySelectorAll('.registrar-btn:not(.other-expand-btn):not(.other-copy-btn)').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const registrarId = btn.dataset.registrar;
                 const domain = btn.dataset.domain;
@@ -1647,6 +2033,82 @@ document.addEventListener('DOMContentLoaded', () => {
                     await savePreferredRegistrar(registrarId);
                 }
             });
+        });
+
+        // "Other" card expand/collapse handlers
+        const otherCardEl = registrarCards.querySelector('.registrar-card-other');
+        const collapsedEl = otherCardEl.querySelector('.other-collapsed');
+        const expandedEl = otherCardEl.querySelector('.other-expanded');
+        const expandBtn = otherCardEl.querySelector('.other-expand-btn');
+        const cancelBtn = otherCardEl.querySelector('.other-cancel-btn');
+        const copyBtn = otherCardEl.querySelector('.other-copy-btn');
+        const input = otherCardEl.querySelector('.other-input');
+
+        expandBtn.addEventListener('click', () => {
+            collapsedEl.hidden = true;
+            expandedEl.hidden = false;
+            otherCardEl.classList.add('expanded');
+            input.focus();
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            collapsedEl.hidden = false;
+            expandedEl.hidden = true;
+            otherCardEl.classList.remove('expanded');
+            input.value = '';
+            copyBtn.disabled = true;
+        });
+
+        input.addEventListener('input', () => {
+            copyBtn.disabled = input.value.trim().length === 0;
+        });
+
+        // Allow Enter key to trigger copy
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && input.value.trim()) {
+                copyBtn.click();
+            }
+        });
+
+        copyBtn.addEventListener('click', async () => {
+            const registrarName = input.value.trim();
+            const domainToCopy = otherCardEl.dataset.domain;
+
+            if (!registrarName) return;
+
+            // Track the "other" registrar choice
+            fetch('/api/track/affiliate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain: domainToCopy, registrar: 'other', otherRegistrar: registrarName })
+            }).catch(() => {});
+
+            // Copy domain to clipboard
+            try {
+                await navigator.clipboard.writeText(domainToCopy);
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy domain';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = domainToCopy;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy domain';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            }
         });
     }
 

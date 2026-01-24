@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +8,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        // Apply saved theme immediately to prevent flash
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
     <!-- Privacy-friendly analytics by Plausible -->
     <script async src="https://plausible.io/js/pa-iGNVWkyAB7tInPtHQxAmW.js"></script>
     <script>
@@ -179,6 +186,10 @@
 
             <!-- User Menu -->
             <div class="user-menu">
+                <button id="theme-toggle-btn" class="hero-theme-toggle" title="Toggle theme">
+                    <span class="theme-icon-dark">☀</span>
+                    <span class="theme-icon-light">☾</span>
+                </button>
                 <button id="sign-in-btn" class="sign-in-btn">Sign in</button>
                 <div id="user-dropdown" class="user-dropdown" hidden>
                     <button id="user-btn" class="user-btn">
@@ -209,6 +220,13 @@
                         <button id="admin-btn" class="dropdown-item" hidden>
                             <span class="dropdown-icon">⌘</span> Admin
                         </button>
+                        <div class="dropdown-divider"></div>
+                        <button id="theme-toggle-dropdown" class="theme-toggle">
+                            <span class="theme-toggle-label">
+                                <span class="dropdown-icon">◐</span> Light mode
+                            </span>
+                            <span class="theme-toggle-switch"></span>
+                        </button>
                         <button id="logout-btn" class="dropdown-item">
                             <span class="dropdown-icon">→</span> Sign out
                         </button>
@@ -216,6 +234,12 @@
                 </div>
             </div>
         </header>
+
+        <!-- Tab Bar -->
+        <div id="tab-bar" class="tab-bar" hidden>
+            <div class="tab-list" id="tab-list"></div>
+            <button class="tab-new-btn" id="tab-new-btn" title="New search">+</button>
+        </div>
 
         <!-- Main Content -->
         <main class="main-content">
