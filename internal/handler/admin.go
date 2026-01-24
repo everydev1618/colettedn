@@ -33,9 +33,23 @@ type ComprehensiveStats struct {
 	RecentSubscribers []SubscriberInfo `json:"recentSubscribers"`
 	RecentSignups     []SignupInfo     `json:"recentSignups"`
 	RecentFavorites   []FavoriteInfo   `json:"recentFavorites"`
+	RecentSearches    []SearchInfo     `json:"recentSearches"`
+	PopularDomains    []PopularDomain  `json:"popularDomains"`
 
 	// Trends (last 14 days)
 	Trends TrendData `json:"trends"`
+}
+
+type SearchInfo struct {
+	Description string `json:"description"`
+	Email       string `json:"email,omitempty"`
+	TLDStyle    string `json:"tldStyle"`
+	SearchedAt  int64  `json:"searchedAt"`
+}
+
+type PopularDomain struct {
+	Domain string `json:"domain"`
+	Count  int64  `json:"count"`
 }
 
 type RevenueStats struct {
@@ -366,6 +380,34 @@ func (h *AdminHandler) Stats(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 		}
+	}
+
+	// Recent searches (last 25)
+	if recentSearches, err := a.GetRecentSearches(ctx, 25); err == nil {
+		for _, s := range recentSearches {
+			stats.RecentSearches = append(stats.RecentSearches, SearchInfo{
+				Description: s.Description,
+				Email:       s.Email,
+				TLDStyle:    s.TLDStyle,
+				SearchedAt:  s.SearchedAt,
+			})
+		}
+	}
+	if stats.RecentSearches == nil {
+		stats.RecentSearches = []SearchInfo{}
+	}
+
+	// Popular domains (top 25)
+	if popularDomains, err := a.GetPopularDomains(ctx, 25); err == nil {
+		for _, d := range popularDomains {
+			stats.PopularDomains = append(stats.PopularDomains, PopularDomain{
+				Domain: d.Domain,
+				Count:  d.Count,
+			})
+		}
+	}
+	if stats.PopularDomains == nil {
+		stats.PopularDomains = []PopularDomain{}
 	}
 
 	writeJSON(w, http.StatusOK, stats)

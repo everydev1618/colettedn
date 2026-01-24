@@ -814,6 +814,26 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Recent Searches -->
+                    <div class="panel">
+                        <div class="panel-header">Recent Searches (25)</div>
+                        <div class="panel-body" style="max-height: 400px; overflow-y: auto;">
+                            <ul class="user-list" id="searches-list">
+                                <li class="empty-state">No searches yet</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Popular Domains -->
+                    <div class="panel">
+                        <div class="panel-header">Most Popular Domains (25)</div>
+                        <div class="panel-body" style="max-height: 400px; overflow-y: auto;">
+                            <ul class="user-list" id="popular-domains-list">
+                                <li class="empty-state">No domain data yet</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -989,6 +1009,44 @@
                 `).join('');
             } else {
                 favoritesList.innerHTML = '<li class="empty-state">No favorites yet</li>';
+            }
+
+            // Recent searches
+            const searchesList = document.getElementById('searches-list');
+            if (data.recentSearches && data.recentSearches.length > 0) {
+                searchesList.innerHTML = data.recentSearches.map(search => `
+                    <li class="user-item">
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="user-email" style="max-width: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(search.description)}">${escapeHtml(search.description)}</div>
+                            <div class="user-meta">${search.email ? escapeHtml(search.email) : 'Anonymous'} · ${search.tldStyle || 'traditional'}</div>
+                        </div>
+                        <span class="user-meta" style="flex-shrink: 0;">${formatRelativeTime(search.searchedAt)}</span>
+                    </li>
+                `).join('');
+            } else {
+                searchesList.innerHTML = '<li class="empty-state">No searches yet</li>';
+            }
+
+            // Popular domains
+            const popularDomainsList = document.getElementById('popular-domains-list');
+            if (data.popularDomains && data.popularDomains.length > 0) {
+                const maxCount = Math.max(...data.popularDomains.map(d => d.count), 1);
+                popularDomainsList.innerHTML = data.popularDomains.map((domain, index) => `
+                    <li class="user-item">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0;">
+                            <span style="color: var(--muted); font-size: 0.75rem; width: 1.5rem;">#${index + 1}</span>
+                            <span class="user-email" style="max-width: none;">${escapeHtml(domain.domain)}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 60px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;">
+                                <div style="height: 100%; background: var(--accent); width: ${(domain.count / maxCount) * 100}%;"></div>
+                            </div>
+                            <span class="user-meta" style="min-width: 2rem; text-align: right;">${domain.count}x</span>
+                        </div>
+                    </li>
+                `).join('');
+            } else {
+                popularDomainsList.innerHTML = '<li class="empty-state">No domain data yet</li>';
             }
         }
 

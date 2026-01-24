@@ -364,6 +364,8 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		email = authUser.Email
 	}
 	analytics.Get().TrackSearch(r.Context(), userID, email, ip, req.Description, req.TLDStyle)
+	// Record full search details for admin dashboard
+	analytics.Get().RecordSearchDetails(r.Context(), req.Description, userID, email, ip, req.TLDStyle)
 
 	// Check if the input is a domain idea (like "tonycto.com") vs a project description
 	isDomainMode := isDomainIdea(req.Description)
@@ -594,6 +596,19 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+	}
+
+	// Record available domains for popularity tracking
+	var availableDomainNames []string
+	for _, results := range availableByCategory {
+		for _, result := range results {
+			if result.Available != nil && *result.Available {
+				availableDomainNames = append(availableDomainNames, result.Name)
+			}
+		}
+	}
+	if len(availableDomainNames) > 0 {
+		analytics.Get().RecordAvailableDomains(r.Context(), availableDomainNames)
 	}
 
 	// Build response with usage info

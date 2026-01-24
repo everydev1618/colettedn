@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,22 @@ const (
 	EventUpgrade        = "upgrade"
 	EventChurn          = "churn"
 )
+
+// SearchRecord represents a full search record with details
+type SearchRecord struct {
+	Description string `json:"description" dynamodbav:"description"`
+	UserID      string `json:"userId,omitempty" dynamodbav:"user_id,omitempty"`
+	Email       string `json:"email,omitempty" dynamodbav:"email,omitempty"`
+	TLDStyle    string `json:"tldStyle" dynamodbav:"tld_style"`
+	IPAddress   string `json:"-" dynamodbav:"ip_address,omitempty"`
+	SearchedAt  int64  `json:"searchedAt" dynamodbav:"searched_at"`
+}
+
+// PopularDomain represents a domain and how many times it appeared in results
+type PopularDomain struct {
+	Domain string `json:"domain"`
+	Count  int64  `json:"count"`
+}
 
 // Service handles analytics tracking and querying
 type Service struct {
@@ -336,6 +353,155 @@ func (s *Service) GetDailyTrend(ctx context.Context, metric string, days int) ([
 	return counters, nil
 }
 
+// RecordSearchDetails stores a full search record for display in admin dashboard
+func (s *Service) RecordSearchDetails(ctx context.Context, description, userID, email, ipAddress, tldStyle string) {
+	go func() {
+		now := time.Now()
+		// TTL: keep search records for 30 days
+		ttl := now.Add(30 * 24 * time.Hour).Unix()
+
+		item := map[string]types.AttributeValue{
+			"pk":          &types.AttributeValueMemberS{Value: "searches"},
+			"sk":          &types.AttributeValueMemberS{Value: now.Format(time.RFC3339Nano)},
+			"description": &types.AttributeValueMemberS{Value: truncate(description, 200)},
+			"tld_style":   &types.AttributeValueMemberS{Value: tldStyle},
+			"searched_at": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", now.UnixMilli())},
+			"ttl":         &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", ttl)},
+		}
+
+		if userID != "" {
+			item["user_id"] = &types.AttributeValueMemberS{Value: userID}
+		}
+		if email != "" {
+			item["email"] = &types.AttributeValueMemberS{Value: email}
+		}
+		if ipAddress != "" {
+			item["ip_address"] = &types.AttributeValueMemberS{Value: ipAddress}
+		}
+
+		_, err := s.db.PutItem(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(s.tableName),
+			Item:      item,
+		})
+		if err != nil {
+			log.Printf("[ANALYTICS] Failed to record search details: %v", err)
+		}
+	}()
+}
+
+// GetRecentSearches retrieves the most recent search records
+func (s *Service) GetRecentSearches(ctx context.Context, limit int) ([]SearchRecord, error) {
+	result, err := s.db.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.tableName),
+		KeyConditionExpression: aws.String("pk = :pk"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: "searches"},
+		},
+		ScanIndexForward: aws.Bool(false), // newest first
+		Limit:            aws.Int32(int32(limit)),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var searches []SearchRecord
+	for _, item := range result.Items {
+		record := SearchRecord{}
+
+		if v, ok := item["description"].(*types.AttributeValueMemberS); ok {
+			record.Description = v.Value
+		}
+		if v, ok := item["user_id"].(*types.AttributeValueMemberS); ok {
+			record.UserID = v.Value
+		}
+		if v, ok := item["email"].(*types.AttributeValueMemberS); ok {
+			record.Email = v.Value
+		}
+		if v, ok := item["tld_style"].(*types.AttributeValueMemberS); ok {
+			record.TLDStyle = v.Value
+		}
+		if v, ok := item["searched_at"].(*types.AttributeValueMemberN); ok {
+			if ts, err := strconv.ParseInt(v.Value, 10, 64); err == nil {
+				record.SearchedAt = ts
+			}
+		}
+
+		searches = append(searches, record)
+	}
+	return searches, nil
+}
+
+// RecordAvailableDomains increments popularity count for domains that appeared in search results
+func (s *Service) RecordAvailableDomains(ctx context.Context, domains []string) {
+	go func() {
+		for _, domain := range domains {
+			domain = strings.ToLower(domain)
+			_, err := s.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+				TableName: aws.String(s.tableName),
+				Key: map[string]types.AttributeValue{
+					"pk": &types.AttributeValueMemberS{Value: "domain_popularity"},
+					"sk": &types.AttributeValueMemberS{Value: domain},
+				},
+				UpdateExpression: aws.String("ADD #count :inc SET updated_at = :now"),
+				ExpressionAttributeNames: map[string]string{
+					"#count": "count",
+				},
+				ExpressionAttributeValues: map[string]types.AttributeValue{
+					":inc": &types.AttributeValueMemberN{Value: "1"},
+					":now": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Unix())},
+				},
+			})
+			if err != nil {
+				log.Printf("[ANALYTICS] Failed to record domain popularity for %s: %v", domain, err)
+			}
+		}
+	}()
+}
+
+// GetPopularDomains retrieves the most popular domains from search results
+func (s *Service) GetPopularDomains(ctx context.Context, limit int) ([]PopularDomain, error) {
+	// Query all domain popularity records
+	result, err := s.db.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.tableName),
+		KeyConditionExpression: aws.String("pk = :pk"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: "domain_popularity"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var domains []PopularDomain
+	for _, item := range result.Items {
+		domain := PopularDomain{}
+		if v, ok := item["sk"].(*types.AttributeValueMemberS); ok {
+			domain.Domain = v.Value
+		}
+		if v, ok := item["count"].(*types.AttributeValueMemberN); ok {
+			if count, err := strconv.ParseInt(v.Value, 10, 64); err == nil {
+				domain.Count = count
+			}
+		}
+		domains = append(domains, domain)
+	}
+
+	// Sort by count descending
+	for i := 0; i < len(domains)-1; i++ {
+		for j := i + 1; j < len(domains); j++ {
+			if domains[j].Count > domains[i].Count {
+				domains[i], domains[j] = domains[j], domains[i]
+			}
+		}
+	}
+
+	// Limit results
+	if len(domains) > limit {
+		domains = domains[:limit]
+	}
+	return domains, nil
+}
+
 func (s *Service) incrementDailyCounter(ctx context.Context, metric string) {
 	today := time.Now().Format("2006-01-02")
 
@@ -616,6 +782,98 @@ func (m *MemoryService) GetTopReferrers(ctx context.Context, limit int) ([]Refer
 	return referrers, nil
 }
 
+func (m *MemoryService) RecordSearchDetails(ctx context.Context, description, userID, email, ipAddress, tldStyle string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.events["searches"] == nil {
+		m.events["searches"] = []Event{}
+	}
+	m.events["searches"] = append(m.events["searches"], Event{
+		UserID:    userID,
+		Email:     email,
+		IPAddress: ipAddress,
+		Metadata:  fmt.Sprintf("%s|%s", tldStyle, description),
+		Timestamp: time.Now().Format(time.RFC3339Nano),
+	})
+	// Keep only last 100 searches in memory
+	if len(m.events["searches"]) > 100 {
+		m.events["searches"] = m.events["searches"][len(m.events["searches"])-100:]
+	}
+}
+
+func (m *MemoryService) GetRecentSearches(ctx context.Context, limit int) ([]SearchRecord, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var searches []SearchRecord
+	events := m.events["searches"]
+
+	// Return in reverse order (newest first)
+	start := len(events) - 1
+	count := 0
+	for i := start; i >= 0 && count < limit; i-- {
+		e := events[i]
+		parts := strings.SplitN(e.Metadata, "|", 2)
+		tldStyle := ""
+		description := e.Metadata
+		if len(parts) == 2 {
+			tldStyle = parts[0]
+			description = parts[1]
+		}
+
+		ts, _ := time.Parse(time.RFC3339Nano, e.Timestamp)
+		searches = append(searches, SearchRecord{
+			Description: description,
+			UserID:      e.UserID,
+			Email:       e.Email,
+			TLDStyle:    tldStyle,
+			SearchedAt:  ts.UnixMilli(),
+		})
+		count++
+	}
+	return searches, nil
+}
+
+func (m *MemoryService) RecordAvailableDomains(ctx context.Context, domains []string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, domain := range domains {
+		domain = strings.ToLower(domain)
+		m.counters[fmt.Sprintf("domain_pop#%s", domain)]++
+	}
+}
+
+func (m *MemoryService) GetPopularDomains(ctx context.Context, limit int) ([]PopularDomain, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var domains []PopularDomain
+	prefix := "domain_pop#"
+	for key, count := range m.counters {
+		if strings.HasPrefix(key, prefix) {
+			domain := strings.TrimPrefix(key, prefix)
+			domains = append(domains, PopularDomain{
+				Domain: domain,
+				Count:  count,
+			})
+		}
+	}
+
+	// Sort by count descending
+	for i := 0; i < len(domains)-1; i++ {
+		for j := i + 1; j < len(domains); j++ {
+			if domains[j].Count > domains[i].Count {
+				domains[i], domains[j] = domains[j], domains[i]
+			}
+		}
+	}
+
+	if len(domains) > limit {
+		domains = domains[:limit]
+	}
+	return domains, nil
+}
+
 // Analytics is the interface for analytics tracking
 type Analytics interface {
 	TrackPageView(ctx context.Context, path, referrer, ipAddress string)
@@ -632,6 +890,10 @@ type Analytics interface {
 	GetRecentEvents(ctx context.Context, eventType string, limit int) ([]Event, error)
 	GetDailyTrend(ctx context.Context, metric string, days int) ([]DailyCounter, error)
 	GetTopReferrers(ctx context.Context, limit int) ([]ReferrerCount, error)
+	RecordSearchDetails(ctx context.Context, description, userID, email, ipAddress, tldStyle string)
+	GetRecentSearches(ctx context.Context, limit int) ([]SearchRecord, error)
+	RecordAvailableDomains(ctx context.Context, domains []string)
+	GetPopularDomains(ctx context.Context, limit int) ([]PopularDomain, error)
 }
 
 // Ensure implementations satisfy the interface

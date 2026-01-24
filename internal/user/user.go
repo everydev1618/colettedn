@@ -24,15 +24,16 @@ const (
 )
 
 type User struct {
-	UserID                  string           `dynamodbav:"user_id" json:"userId"`
-	Email                   string           `dynamodbav:"email" json:"email"`
-	SubscriptionTier        SubscriptionTier `dynamodbav:"subscription_tier" json:"subscriptionTier"`
-	StripeCustomerID        string           `dynamodbav:"stripe_customer_id,omitempty" json:"stripeCustomerId,omitempty"`
-	SubscriptionExpiry      int64            `dynamodbav:"subscription_expiry,omitempty" json:"subscriptionExpiry,omitempty"`
-	PreferredRegistrar      string           `dynamodbav:"preferred_registrar,omitempty" json:"preferredRegistrar,omitempty"`
-	Theme                   string           `dynamodbav:"theme,omitempty" json:"theme,omitempty"`
-	MonitoringNotifications *bool            `dynamodbav:"monitoring_notifications,omitempty" json:"monitoringNotifications,omitempty"` // nil = true (default on)
-	CreatedAt               int64            `dynamodbav:"created_at" json:"createdAt"`
+	UserID                   string           `dynamodbav:"user_id" json:"userId"`
+	Email                    string           `dynamodbav:"email" json:"email"`
+	SubscriptionTier         SubscriptionTier `dynamodbav:"subscription_tier" json:"subscriptionTier"`
+	StripeCustomerID         string           `dynamodbav:"stripe_customer_id,omitempty" json:"stripeCustomerId,omitempty"`
+	SubscriptionExpiry       int64            `dynamodbav:"subscription_expiry,omitempty" json:"subscriptionExpiry,omitempty"`
+	PreferredRegistrar       string           `dynamodbav:"preferred_registrar,omitempty" json:"preferredRegistrar,omitempty"`
+	PreferredOtherRegistrar  string           `dynamodbav:"preferred_other_registrar,omitempty" json:"preferredOtherRegistrar,omitempty"`
+	Theme                    string           `dynamodbav:"theme,omitempty" json:"theme,omitempty"`
+	MonitoringNotifications  *bool            `dynamodbav:"monitoring_notifications,omitempty" json:"monitoringNotifications,omitempty"` // nil = true (default on)
+	CreatedAt                int64            `dynamodbav:"created_at" json:"createdAt"`
 }
 
 type Service struct {
@@ -155,16 +156,17 @@ func (s *Service) UpdateSubscription(ctx context.Context, userID, stripeCustomer
 	return err
 }
 
-func (s *Service) UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string, theme string) error {
+func (s *Service) UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string, preferredOtherRegistrar string, theme string) error {
 	_, err := s.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(s.tableName),
 		Key: map[string]types.AttributeValue{
 			"user_id": &types.AttributeValueMemberS{Value: userID},
 		},
-		UpdateExpression: aws.String("SET preferred_registrar = :reg, theme = :theme"),
+		UpdateExpression: aws.String("SET preferred_registrar = :reg, preferred_other_registrar = :other_reg, theme = :theme"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":reg":   &types.AttributeValueMemberS{Value: preferredRegistrar},
-			":theme": &types.AttributeValueMemberS{Value: theme},
+			":reg":       &types.AttributeValueMemberS{Value: preferredRegistrar},
+			":other_reg": &types.AttributeValueMemberS{Value: preferredOtherRegistrar},
+			":theme":     &types.AttributeValueMemberS{Value: theme},
 		},
 	})
 	return err

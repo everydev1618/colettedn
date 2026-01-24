@@ -97,6 +97,12 @@ export function initDom() {
     dom.tabLimitUpgradeBtn = document.getElementById('tab-limit-upgrade-btn');
     dom.tabLimitCloseTabBtn = document.getElementById('tab-limit-close-tab-btn');
 
+    // Domain detail modal elements
+    dom.domainDetailModal = document.getElementById('domain-detail-modal');
+    dom.domainDetailClose = document.getElementById('domain-detail-close');
+    dom.domainDetailName = document.getElementById('domain-detail-name');
+    dom.domainDetailContent = document.getElementById('domain-detail-content');
+
     // Theme toggle elements
     dom.themeToggleBtn = document.getElementById('theme-toggle-btn');
     dom.themeToggleDropdown = document.getElementById('theme-toggle-dropdown');

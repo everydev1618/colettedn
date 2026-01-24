@@ -91,7 +91,7 @@ func (s *MemoryService) UpdateSubscription(ctx context.Context, userID, stripeCu
 	return nil
 }
 
-func (s *MemoryService) UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string, theme string) error {
+func (s *MemoryService) UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string, preferredOtherRegistrar string, theme string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -101,6 +101,7 @@ func (s *MemoryService) UpdatePreferences(ctx context.Context, userID string, pr
 	}
 
 	user.PreferredRegistrar = preferredRegistrar
+	user.PreferredOtherRegistrar = preferredOtherRegistrar
 	user.Theme = theme
 	return nil
 }

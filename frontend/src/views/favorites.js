@@ -7,6 +7,7 @@ import { openUpgradeModal } from '../modals/upgrade.js';
 import { openOwnedModal, removeOwnedDomain } from '../modals/owned.js';
 import { getActiveTab, switchToTab } from '../tabs/index.js';
 import { showRegistrationView } from './registration.js';
+import { openDomainDetailModal } from '../modals/domain-detail.js';
 
 export async function showFavoritesView() {
     // Check if user is logged in
@@ -66,7 +67,7 @@ export async function renderFavoritesView() {
         return `
             <div class="domain-card${isOwned ? ' owned' : ''}" style="animation-delay: ${i * 0.03}s">
                 <div class="domain-name-row">
-                    <span class="domain-name">${escapeHtml(domain)}</span>
+                    <span class="domain-name" title="Click for domain details">${escapeHtml(domain)}</span>
                     ${ownedBadgeHtml}
                 </div>
                 <div class="domain-row">
@@ -81,6 +82,17 @@ export async function renderFavoritesView() {
             </div>
         `;
     }).join('');
+
+    // Add domain name click handlers for detail modal
+    dom.favoritesList.querySelectorAll('.domain-name').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const domainName = el.textContent;
+            if (domainName) {
+                openDomainDetailModal(domainName);
+            }
+        });
+    });
 
     // Add remove handlers
     dom.favoritesList.querySelectorAll('.favorite-btn').forEach(btn => {

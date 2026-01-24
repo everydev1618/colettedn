@@ -33,6 +33,45 @@ export const REGISTRARS = {
     }
 };
 
+// Other registrar options with direct search URLs (sorted alphabetically)
+export const OTHER_REGISTRARS = {
+    cloudflare: {
+        id: 'cloudflare',
+        name: 'Cloudflare',
+        getUrl: (d) => `https://domains.cloudflare.com/?domain=${encodeURIComponent(d)}`
+    },
+    'domain.com': {
+        id: 'domain.com',
+        name: 'Domain.com',
+        getUrl: (d) => `https://www.domain.com/registration/?search=${encodeURIComponent(d)}`
+    },
+    dynadot: {
+        id: 'dynadot',
+        name: 'Dynadot',
+        getUrl: (d) => `https://www.dynadot.com/domain/search?domain=${encodeURIComponent(d)}`
+    },
+    hover: {
+        id: 'hover',
+        name: 'Hover',
+        getUrl: (d) => `https://www.hover.com/domains/results?q=${encodeURIComponent(d)}`
+    },
+    'name.com': {
+        id: 'name.com',
+        name: 'Name.com',
+        getUrl: (d) => `https://www.name.com/domain/search?q=${encodeURIComponent(d)}`
+    },
+    squarespace: {
+        id: 'squarespace',
+        name: 'Squarespace',
+        getUrl: (d) => `https://domains.squarespace.com/domain-search?query=${encodeURIComponent(d)}`
+    },
+    vercel: {
+        id: 'vercel',
+        name: 'Vercel',
+        getUrl: (d) => `https://vercel.com/domains?q=${encodeURIComponent(d)}`
+    }
+};
+
 export const TLD_INFO = {
     'com': 'Most recognized TLD',
     'io': 'Tech & startup favorite',

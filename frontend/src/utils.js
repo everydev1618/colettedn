@@ -98,6 +98,40 @@ export function extractBaseName(domain) {
     return lastDot > 0 ? lowerDomain.slice(0, lastDot) : lowerDomain;
 }
 
+export function formatDate(dateString) {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+export function formatDomainAge(createdDate) {
+    if (!createdDate) return null;
+    const created = new Date(createdDate);
+    if (isNaN(created.getTime())) return null;
+
+    const now = new Date();
+    const diffMs = now - created;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 30) return `${diffDays} days`;
+    if (diffDays < 365) {
+        const months = Math.floor(diffDays / 30);
+        return `${months} month${months !== 1 ? 's' : ''}`;
+    }
+
+    const years = Math.floor(diffDays / 365);
+    const remainingMonths = Math.floor((diffDays % 365) / 30);
+    if (remainingMonths > 0) {
+        return `${years} year${years !== 1 ? 's' : ''}, ${remainingMonths} month${remainingMonths !== 1 ? 's' : ''}`;
+    }
+    return `${years} year${years !== 1 ? 's' : ''}`;
+}
+
 // Initialize shake animation style
 export function initShakeAnimation() {
     const style = document.createElement('style');

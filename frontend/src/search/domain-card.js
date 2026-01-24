@@ -98,7 +98,7 @@ export function renderDomainCard(domain, index, categories) {
     return `
         <div class="domain-card${isOwned ? ' owned' : ''}" style="animation-delay: ${index * 0.03}s">
             <div class="domain-name-row">
-                <span class="domain-name">${escapeHtml(domain.name)}</span>
+                <span class="domain-name" title="Click for domain details">${escapeHtml(domain.name)}</span>
                 ${ownedBadgeHtml}
                 ${comCheckHtml}
             </div>

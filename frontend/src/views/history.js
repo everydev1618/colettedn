@@ -5,6 +5,7 @@ import { escapeHtml, formatHistoryDate } from '../utils.js';
 import { openLoginModal } from '../auth/login-modal.js';
 import { openUpgradeModal } from '../modals/upgrade.js';
 import { getActiveTab, switchToTab } from '../tabs/index.js';
+import { openDomainDetailModal } from '../modals/domain-detail.js';
 
 export async function showHistoryView() {
     // Check if user is logged in
@@ -101,11 +102,23 @@ export async function renderHistoryView() {
                         </div>
                     </div>
                     <div class="history-domains-preview">
-                        ${allDomains.map(d => `<span class="history-domain-tag">${escapeHtml(d)}</span>`).join('')}
+                        ${allDomains.map(d => `<span class="history-domain-tag" title="Click for domain details">${escapeHtml(d)}</span>`).join('')}
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Add domain tag click handlers for detail modal
+        dom.historyList.querySelectorAll('.history-domain-tag').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const domainName = el.textContent;
+                if (domainName) {
+                    openDomainDetailModal(domainName);
+                }
+            });
+        });
 
         // Add search again handlers
         dom.historyList.querySelectorAll('.history-search-btn').forEach(btn => {

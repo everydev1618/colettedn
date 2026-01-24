@@ -13,6 +13,7 @@ import { openLoginModal } from '../auth/login-modal.js';
 import { openUpgradeModal } from '../modals/upgrade.js';
 import { addToMonitoring, removeFromMonitoring } from '../views/monitoring.js';
 import { toggleFavorite } from '../views/favorites.js';
+import { openDomainDetailModal } from '../modals/domain-detail.js';
 
 export function showErrorForTab(tab) {
     if (activeTabId !== tab.id) return;
@@ -234,6 +235,39 @@ export function renderResultsForTab(tab) {
                     btn.textContent = '◉';
                     btn.title = 'Remove from monitoring';
                 }
+            }
+        });
+    });
+
+    // Add domain name click handlers for detail modal
+    dom.resultsEl.querySelectorAll('.domain-name').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const domainName = el.textContent;
+            if (domainName) {
+                openDomainDetailModal(domainName);
+            }
+        });
+    });
+
+    // Add click handlers for unavailable domain names
+    dom.resultsEl.querySelectorAll('.unavailable-name').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const domainName = el.textContent;
+            if (domainName) {
+                openDomainDetailModal(domainName);
+            }
+        });
+    });
+
+    // Add click handlers for searched domain names
+    dom.resultsEl.querySelectorAll('.searched-name').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const domainName = el.textContent;
+            if (domainName) {
+                openDomainDetailModal(domainName);
             }
         });
     });

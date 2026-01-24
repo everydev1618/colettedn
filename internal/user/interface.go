@@ -17,7 +17,7 @@ type UserService interface {
 	Create(ctx context.Context, email string) (*User, error)
 	GetOrCreate(ctx context.Context, email string) (*User, error)
 	UpdateSubscription(ctx context.Context, userID, stripeCustomerID string, tier SubscriptionTier, expiry int64) error
-	UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string, theme string) error
+	UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string, preferredOtherRegistrar string, theme string) error
 	UpdateMonitoringNotifications(ctx context.Context, userID string, enabled bool) error
 	GetByStripeCustomerID(ctx context.Context, customerID string) (*User, error)
 	GetStats(ctx context.Context) (*UserStats, error)

@@ -2435,6 +2435,245 @@ body {
 }
 
 /* ==========================================================================
+   Domain Detail Modal
+   ========================================================================== */
+
+.domain-detail-modal {
+    max-width: 480px;
+    text-align: left;
+}
+
+.domain-detail-header {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--cream);
+    margin-bottom: 1.5rem;
+    word-break: break-all;
+}
+
+.domain-detail-content {
+    min-height: 120px;
+}
+
+/* Loading skeleton */
+.domain-detail-loading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.skeleton-line {
+    height: 1rem;
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+    width: 60%;
+}
+
+.skeleton-line.short {
+    width: 40%;
+}
+
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.skeleton-item {
+    height: 3rem;
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Available state */
+.domain-detail-available {
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.available-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0a0a0a;
+    margin-bottom: 1rem;
+}
+
+.available-hint {
+    color: var(--cream-dim);
+    font-size: 0.85rem;
+}
+
+/* Domain age */
+.domain-age {
+    font-size: 0.9rem;
+    color: var(--cream-dim);
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.domain-age strong {
+    color: var(--cream);
+}
+
+/* Detail grid */
+.domain-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detail-label {
+    font-size: 0.75rem;
+    color: var(--cream-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.detail-value {
+    font-size: 0.9rem;
+    color: var(--cream);
+}
+
+/* Sections */
+.domain-detail-section {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.domain-detail-section .section-title {
+    font-size: 0.75rem;
+    color: var(--cream-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+}
+
+/* Nameservers */
+.nameserver-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.nameserver-list li {
+    font-size: 0.85rem;
+    color: var(--cream);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.nameserver-list li.no-data {
+    color: var(--cream-dim);
+    font-family: var(--font-body);
+    font-style: italic;
+}
+
+/* Status codes */
+.status-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.status-code {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 0.75rem;
+    color: var(--cream-dim);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.status-list .no-data {
+    color: var(--cream-dim);
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+/* Error state */
+.domain-detail-error {
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--cream-dim);
+}
+
+.domain-detail-error p {
+    margin: 0.5rem 0;
+}
+
+.domain-detail-error .error-hint {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+/* Clickable domain names */
+.domain-name {
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.domain-name:hover {
+    color: var(--gold);
+}
+
+.unavailable-name,
+.searched-name,
+.monitoring-item-domain,
+.history-domain-tag {
+    cursor: pointer;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.unavailable-name:hover,
+.searched-name:hover,
+.monitoring-item-domain:hover,
+.history-domain-tag:hover {
+    color: var(--gold);
+    opacity: 1;
+}
+
+/* Light mode */
+[data-theme="light"] .skeleton-line,
+[data-theme="light"] .skeleton-item {
+    background: linear-gradient(90deg, rgba(0,0,0,0.03) 25%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.03) 75%);
+    background-size: 200% 100%;
+}
+
+[data-theme="light"] .status-code {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* ==========================================================================
    Owned Domain Badge & Buttons
    ========================================================================== */
 
@@ -3774,6 +4013,159 @@ body {
 
 .other-copy-btn.copied {
     background: #4ade80;
+}
+
+/* Autocomplete dropdown */
+.autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #1a1a18;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    list-style: none;
+    padding: 0.5rem 0;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.autocomplete-dropdown[hidden] {
+    display: none;
+}
+
+.autocomplete-item {
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    color: var(--cream);
+    transition: background 0.15s ease;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.highlighted {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.autocomplete-item[hidden] {
+    display: none;
+}
+
+.autocomplete-add-new {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    color: var(--gold);
+}
+
+.add-new-icon {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.add-new-value {
+    font-weight: 500;
+}
+
+[data-theme="light"] .autocomplete-dropdown {
+    background: #f5f4ef;
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .autocomplete-item {
+    color: #1a1a18;
+}
+
+[data-theme="light"] .autocomplete-item:hover,
+[data-theme="light"] .autocomplete-item.highlighted {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .autocomplete-add-new {
+    border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Other registrar selection state */
+.other-selected {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    margin-top: 1rem;
+}
+
+.other-selected-name {
+    font-weight: 500;
+    color: var(--cream);
+}
+
+.other-selected[hidden] {
+    display: none;
+}
+
+.other-save-prompt {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.other-save-prompt[hidden] {
+    display: none;
+}
+
+.other-save-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--cream-dim);
+}
+
+.other-save-label:hover {
+    color: var(--cream);
+}
+
+.other-save-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--gold);
+}
+
+.other-login-prompt {
+    font-size: 0.9rem;
+    color: var(--cream-dim);
+}
+
+.other-login-link {
+    color: var(--gold);
+    text-decoration: none;
+}
+
+.other-login-link:hover {
+    text-decoration: underline;
+}
+
+[data-theme="light"] .other-selected {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .other-save-prompt {
+    border-top-color: rgba(0, 0, 0, 0.08);
 }
 
 .preferred-badge {

@@ -234,14 +234,16 @@ func (h *AuthHandler) GetAuthService() auth.TokenService {
 
 type PreferencesResponse struct {
 	PreferredRegistrar      string `json:"preferredRegistrar"`
+	PreferredOtherRegistrar string `json:"preferredOtherRegistrar"`
 	Theme                   string `json:"theme"`
 	MonitoringNotifications bool   `json:"monitoringNotifications"`
 	Error                   string `json:"error,omitempty"`
 }
 
 type UpdatePreferencesRequest struct {
-	PreferredRegistrar string `json:"preferredRegistrar,omitempty"`
-	Theme              string `json:"theme,omitempty"`
+	PreferredRegistrar      string `json:"preferredRegistrar,omitempty"`
+	PreferredOtherRegistrar string `json:"preferredOtherRegistrar,omitempty"`
+	Theme                   string `json:"theme,omitempty"`
 }
 
 func (h *AuthHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
@@ -259,6 +261,7 @@ func (h *AuthHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, PreferencesResponse{
 		PreferredRegistrar:      fullUser.PreferredRegistrar,
+		PreferredOtherRegistrar: fullUser.PreferredOtherRegistrar,
 		Theme:                   fullUser.Theme,
 		MonitoringNotifications: fullUser.MonitoringNotificationsEnabled(),
 	})
@@ -284,6 +287,16 @@ func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Validate "other" registrar (these are from the OTHER_REGISTRARS config)
+	validOtherRegistrars := map[string]bool{
+		"cloudflare": true, "domain.com": true, "dynadot": true, "hover": true,
+		"name.com": true, "squarespace": true, "vercel": true, "": true,
+	}
+	if !validOtherRegistrars[req.PreferredOtherRegistrar] {
+		writeJSON(w, http.StatusBadRequest, PreferencesResponse{Error: "Invalid other registrar"})
+		return
+	}
+
 	// Validate theme
 	validThemes := map[string]bool{"light": true, "dark": true, "": true}
 	if !validThemes[req.Theme] {
@@ -291,13 +304,14 @@ func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.userService.UpdatePreferences(r.Context(), u.UserID, req.PreferredRegistrar, req.Theme); err != nil {
+	if err := h.userService.UpdatePreferences(r.Context(), u.UserID, req.PreferredRegistrar, req.PreferredOtherRegistrar, req.Theme); err != nil {
 		writeJSON(w, http.StatusInternalServerError, PreferencesResponse{Error: "Failed to update preferences"})
 		return
 	}
 
 	writeJSON(w, http.StatusOK, PreferencesResponse{
 		PreferredRegistrar:      req.PreferredRegistrar,
+		PreferredOtherRegistrar: req.PreferredOtherRegistrar,
 		Theme:                   req.Theme,
 		MonitoringNotifications: true, // This endpoint doesn't change this setting
 	})

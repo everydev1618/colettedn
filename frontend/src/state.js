@@ -17,7 +17,11 @@ export let comSiteChecks = new Map();
 // Registration state
 export let currentRegistrationDomain = null;
 export let userPreferredRegistrar = null;
+export let userPreferredOtherRegistrar = null; // For "Other" registrar selection
 export let pendingOwnedDomain = null;
+
+// RDAP info cache (session-level)
+export let rdapInfoCache = new Map();
 
 // Maintenance
 export let maintenanceTimer = null;
@@ -67,6 +71,10 @@ export function setCurrentRegistrationDomain(domain) {
 
 export function setUserPreferredRegistrar(registrar) {
     userPreferredRegistrar = registrar;
+}
+
+export function setUserPreferredOtherRegistrar(registrar) {
+    userPreferredOtherRegistrar = registrar;
 }
 
 export function setPendingOwnedDomain(domain) {

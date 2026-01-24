@@ -9,6 +9,7 @@ import { initUserMenu } from './auth/user-menu.js';
 import { initUpgradeModal } from './modals/upgrade.js';
 import { initOwnedModal } from './modals/owned.js';
 import { initTabLimitModal } from './modals/tab-limit.js';
+import { initDomainDetailModal } from './modals/domain-detail.js';
 import { initWelcome } from './views/welcome.js';
 import { initFavorites } from './views/favorites.js';
 import { initHistory } from './views/history.js';
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initUpgradeModal();
     initOwnedModal();
     initTabLimitModal();
+    initDomainDetailModal();
 
     // Initialize views
     initWelcome();

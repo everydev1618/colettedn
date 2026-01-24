@@ -6,6 +6,7 @@ import { openLoginModal } from '../auth/login-modal.js';
 import { openUpgradeModal } from '../modals/upgrade.js';
 import { getActiveTab, switchToTab } from '../tabs/index.js';
 import { fetchMonitoredDomains } from '../auth/index.js';
+import { openDomainDetailModal } from '../modals/domain-detail.js';
 
 export async function showMonitoringView() {
     // Check if user is logged in
@@ -100,7 +101,7 @@ export async function renderMonitoringView() {
         return `
             <div class="monitoring-item" style="animation-delay: ${i * 0.05}s">
                 <div class="monitoring-item-info">
-                    <div class="monitoring-item-domain">${escapeHtml(domain)}</div>
+                    <div class="monitoring-item-domain" title="Click for domain details">${escapeHtml(domain)}</div>
                     <div class="monitoring-item-meta">
                         ${expiryBadge}
                         ${registrarText}
@@ -115,6 +116,17 @@ export async function renderMonitoringView() {
     });
 
     dom.monitoringList.innerHTML = items.join('');
+
+    // Add domain name click handlers for detail modal
+    dom.monitoringList.querySelectorAll('.monitoring-item-domain').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const domainName = el.textContent;
+            if (domainName) {
+                openDomainDetailModal(domainName);
+            }
+        });
+    });
 
     // Add refresh handlers
     dom.monitoringList.querySelectorAll('.monitoring-refresh-btn').forEach(btn => {
