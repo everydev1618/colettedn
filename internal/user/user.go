@@ -30,6 +30,7 @@ type User struct {
 	StripeCustomerID    string           `dynamodbav:"stripe_customer_id,omitempty" json:"stripeCustomerId,omitempty"`
 	SubscriptionExpiry  int64            `dynamodbav:"subscription_expiry,omitempty" json:"subscriptionExpiry,omitempty"`
 	PreferredRegistrar  string           `dynamodbav:"preferred_registrar,omitempty" json:"preferredRegistrar,omitempty"`
+	Theme               string           `dynamodbav:"theme,omitempty" json:"theme,omitempty"`
 	CreatedAt           int64            `dynamodbav:"created_at" json:"createdAt"`
 }
 
@@ -153,15 +154,16 @@ func (s *Service) UpdateSubscription(ctx context.Context, userID, stripeCustomer
 	return err
 }
 
-func (s *Service) UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string) error {
+func (s *Service) UpdatePreferences(ctx context.Context, userID string, preferredRegistrar string, theme string) error {
 	_, err := s.db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(s.tableName),
 		Key: map[string]types.AttributeValue{
 			"user_id": &types.AttributeValueMemberS{Value: userID},
 		},
-		UpdateExpression: aws.String("SET preferred_registrar = :reg"),
+		UpdateExpression: aws.String("SET preferred_registrar = :reg, theme = :theme"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":reg": &types.AttributeValueMemberS{Value: preferredRegistrar},
+			":reg":   &types.AttributeValueMemberS{Value: preferredRegistrar},
+			":theme": &types.AttributeValueMemberS{Value: theme},
 		},
 	})
 	return err

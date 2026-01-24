@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +8,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        // Apply saved theme immediately to prevent flash
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
     <style>
         :root {
             /* Core colors */
@@ -26,6 +33,17 @@
             --warning-bg: #fef9c3;
             --danger: #dc2626;
             --danger-bg: #fee2e2;
+        }
+
+        /* Light theme for admin */
+        [data-theme="light"] {
+            --background: #f8f7f4;
+            --surface: #ffffff;
+            --foreground: #1a1a1a;
+            --muted: #666;
+            --border: rgba(0, 0, 0, 0.08);
+            --accent: #9a7d2e;
+            --accent-subtle: rgba(154, 125, 46, 0.15);
         }
 
         .admin-layout {

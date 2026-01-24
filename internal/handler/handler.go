@@ -127,6 +127,120 @@ type DomainResult struct {
 	Price     *float64 `json:"price,omitempty"`
 	FromCache bool     `json:"fromCache,omitempty"`
 	CheckedAt *int64   `json:"checkedAt,omitempty"` // Unix timestamp
+	Score     int      `json:"score,omitempty"`     // 0-100 quality score
+}
+
+// scoreDomain calculates a quality score (0-100) for a domain name
+func scoreDomain(domain string) int {
+	// Split into name and TLD
+	parts := strings.SplitN(domain, ".", 2)
+	if len(parts) != 2 {
+		return 50 // Default for invalid format
+	}
+	name := strings.ToLower(parts[0])
+	tld := strings.ToLower(parts[1])
+
+	score := 0
+
+	// Length score (25 points max)
+	// Ideal: 5-8 chars, good: 4-10, acceptable: 3-12
+	length := len(name)
+	switch {
+	case length >= 5 && length <= 8:
+		score += 25
+	case length >= 4 && length <= 10:
+		score += 20
+	case length >= 3 && length <= 12:
+		score += 15
+	case length >= 2 && length <= 15:
+		score += 10
+	default:
+		score += 5
+	}
+
+	// TLD score (25 points max)
+	switch tld {
+	case "com":
+		score += 25
+	case "io", "ai":
+		score += 22
+	case "co", "app", "dev":
+		score += 18
+	case "net", "org":
+		score += 15
+	case "me", "xyz", "tech":
+		score += 12
+	default:
+		score += 10
+	}
+
+	// Readability score (25 points max)
+	// Based on vowel ratio and letter patterns
+	vowels := 0
+	for _, c := range name {
+		if c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' {
+			vowels++
+		}
+	}
+	vowelRatio := float64(vowels) / float64(len(name))
+	switch {
+	case vowelRatio >= 0.3 && vowelRatio <= 0.5:
+		score += 25 // Ideal ratio
+	case vowelRatio >= 0.2 && vowelRatio <= 0.6:
+		score += 20
+	case vowelRatio >= 0.1:
+		score += 12
+	default:
+		score += 5 // All consonants is hard to pronounce
+	}
+
+	// Simplicity score (25 points max)
+	// Penalize hyphens, numbers, uncommon patterns
+	simplicityScore := 25
+
+	// Check for hyphens
+	if strings.Contains(name, "-") {
+		simplicityScore -= 10
+	}
+
+	// Check for numbers
+	for _, c := range name {
+		if c >= '0' && c <= '9' {
+			simplicityScore -= 8
+			break
+		}
+	}
+
+	// Check for double letters that are hard to type/remember
+	hardDoubles := []string{"ii", "uu", "aa", "ww", "yy"}
+	for _, d := range hardDoubles {
+		if strings.Contains(name, d) {
+			simplicityScore -= 3
+			break
+		}
+	}
+
+	// Check for triple consonants (hard to pronounce)
+	consonants := "bcdfghjklmnpqrstvwxyz"
+	consonantRun := 0
+	for _, c := range name {
+		if strings.ContainsRune(consonants, c) {
+			consonantRun++
+			if consonantRun >= 3 {
+				simplicityScore -= 5
+				break
+			}
+		} else {
+			consonantRun = 0
+		}
+	}
+
+	if simplicityScore < 0 {
+		simplicityScore = 0
+	}
+	score += simplicityScore
+
+	return score
 }
 
 type CheckRequest struct {
@@ -298,6 +412,7 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 							Price:     info.price,
 							FromCache: info.fromCache,
 							CheckedAt: info.checkedAt,
+							Score:     scoreDomain(d),
 						}
 						availableByCategory[cat] = append(availableByCategory[cat], result)
 					} else {
@@ -306,7 +421,7 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 					}
 				} else if h.nc == nil || availabilityErr != nil {
 					// No availability checker OR API failed - include as unverified
-					result := DomainResult{Name: d}
+					result := DomainResult{Name: d, Score: scoreDomain(d)}
 					availableByCategory[cat] = append(availableByCategory[cat], result)
 				}
 			}
@@ -542,8 +657,9 @@ func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
 // TrackAffiliateClick tracks a click to registrar affiliate link
 func (h *Handler) TrackAffiliateClick(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Domain    string `json:"domain"`
-		Registrar string `json:"registrar"`
+		Domain         string `json:"domain"`
+		Registrar      string `json:"registrar"`
+		OtherRegistrar string `json:"otherRegistrar"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
@@ -555,7 +671,13 @@ func (h *Handler) TrackAffiliateClick(w http.ResponseWriter, r *http.Request) {
 		userID = authUser.UserID
 	}
 
-	analytics.Get().TrackAffiliateClick(r.Context(), userID, req.Domain, req.Registrar)
+	// If user chose "other", include their specified registrar name
+	registrar := req.Registrar
+	if req.Registrar == "other" && req.OtherRegistrar != "" {
+		registrar = fmt.Sprintf("other:%s", req.OtherRegistrar)
+	}
+
+	analytics.Get().TrackAffiliateClick(r.Context(), userID, req.Domain, registrar)
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 

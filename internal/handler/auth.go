@@ -234,11 +234,13 @@ func (h *AuthHandler) GetAuthService() auth.TokenService {
 
 type PreferencesResponse struct {
 	PreferredRegistrar string `json:"preferredRegistrar"`
+	Theme              string `json:"theme"`
 	Error              string `json:"error,omitempty"`
 }
 
 type UpdatePreferencesRequest struct {
-	PreferredRegistrar string `json:"preferredRegistrar"`
+	PreferredRegistrar string `json:"preferredRegistrar,omitempty"`
+	Theme              string `json:"theme,omitempty"`
 }
 
 func (h *AuthHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
@@ -256,6 +258,7 @@ func (h *AuthHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, PreferencesResponse{
 		PreferredRegistrar: fullUser.PreferredRegistrar,
+		Theme:              fullUser.Theme,
 	})
 }
 
@@ -279,12 +282,20 @@ func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.userService.UpdatePreferences(r.Context(), u.UserID, req.PreferredRegistrar); err != nil {
+	// Validate theme
+	validThemes := map[string]bool{"light": true, "dark": true, "": true}
+	if !validThemes[req.Theme] {
+		writeJSON(w, http.StatusBadRequest, PreferencesResponse{Error: "Invalid theme"})
+		return
+	}
+
+	if err := h.userService.UpdatePreferences(r.Context(), u.UserID, req.PreferredRegistrar, req.Theme); err != nil {
 		writeJSON(w, http.StatusInternalServerError, PreferencesResponse{Error: "Failed to update preferences"})
 		return
 	}
 
 	writeJSON(w, http.StatusOK, PreferencesResponse{
 		PreferredRegistrar: req.PreferredRegistrar,
+		Theme:              req.Theme,
 	})
 }
