@@ -2852,6 +2852,11 @@ document.addEventListener('DOMContentLoaded', () => {
         originalUpdateAuthUI();
         if (currentUser) {
             loadUserPreferences();
+            // Re-render active tab to update PRO-only features (e.g., monitor buttons)
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            if (activeTab && activeTab.categories && Object.keys(activeTab.categories).length > 0) {
+                renderResultsForTab(activeTab);
+            }
         } else {
             userPreferredRegistrar = null;
         }
