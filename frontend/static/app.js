@@ -965,18 +965,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `<span class="rounds-badge">${rounds} rounds · ${totalDomains} found</span>`
             : '';
 
-        // Usage banner for free users
-        let usageBannerHtml = '';
-        if (usageInfo && !usageInfo.unlimited) {
-            const remaining = usageInfo.limit - usageInfo.used;
-            const isLow = remaining <= 1;
-            usageBannerHtml = `
-                <div class="usage-banner${isLow ? ' usage-low' : ''}">
-                    <span class="usage-text">${usageInfo.used}/${usageInfo.limit} searches used today</span>
-                    ${isLow ? '<button class="usage-upgrade-btn">Upgrade for unlimited</button>' : ''}
-                </div>
-            `;
-        }
+        // Usage banner removed - let users enjoy the free tier without constant reminders
 
         const sectionsHtml = categoryOrder
             .map((cat, idx) => {
@@ -1001,19 +990,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }).join('');
 
-        // Upgrade CTA for free users at the bottom
-        let upgradeCTAHtml = '';
-        if (!isPro) {
-            upgradeCTAHtml = `
-                <div class="results-upgrade-cta">
-                    <span class="cta-icon">✦</span>
-                    <span class="cta-text">Enjoying Colette? Get unlimited searches with Pro</span>
-                    <button class="cta-upgrade-btn">Upgrade — $29/year</button>
-                </div>
-            `;
-        }
+        // Results CTA removed - let users enjoy results without being pushed to upgrade
 
-        resultsEl.innerHTML = usageBannerHtml + sectionsHtml + upgradeCTAHtml;
+        resultsEl.innerHTML = sectionsHtml;
 
         // Add refresh button handlers
         resultsEl.querySelectorAll('.cache-refresh').forEach(btn => {
@@ -1062,16 +1041,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Add upgrade button handlers (usage banner and CTA)
-        resultsEl.querySelectorAll('.usage-upgrade-btn, .cta-upgrade-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (authToken) {
-                    openUpgradeModal();
-                } else {
-                    openLoginModal('Sign in to upgrade to Pro');
-                }
-            });
-        });
 
         // Add check .com button handlers
         resultsEl.querySelectorAll('.check-com-btn').forEach(btn => {

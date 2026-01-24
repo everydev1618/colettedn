@@ -2043,13 +2043,7 @@ body {
     display: none !important;
 }
 
-.dropdown-upgrade {
-    color: var(--gold) !important;
-}
-
-.dropdown-upgrade:hover {
-    background: rgba(196, 168, 85, 0.1) !important;
-}
+/* Upgrade button now styled like regular menu items for subtlety */
 
 /* ==========================================================================
    Welcome to Pro Page
