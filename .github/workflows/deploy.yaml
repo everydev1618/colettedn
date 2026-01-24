@@ -22,7 +22,10 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Run smoke tests
+      - name: Run unit tests
+        run: go test -v ./internal/namecheap/ ./internal/ratelimit/ ./internal/generator/ ./internal/handler/ -skip TestModelSmoke
+
+      - name: Run API smoke test
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: go test -v -run TestModelSmoke ./internal/generator/

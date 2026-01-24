@@ -1,4 +1,4 @@
-.PHONY: build run dev clean build-lambda test
+.PHONY: build run dev clean build-lambda test test-unit test-smoke
 
 build:
 	go build -o bin/api ./cmd/api
@@ -21,9 +21,17 @@ build-ColetteDNFunction:
 sam-local:
 	sam local start-api
 
-# Run tests (requires ANTHROPIC_API_KEY for smoke tests)
+# Run all tests (unit + smoke if ANTHROPIC_API_KEY set)
 test:
 	go test -v ./...
+
+# Run unit tests only (no API calls)
+test-unit:
+	go test -v ./internal/namecheap/ ./internal/ratelimit/ ./internal/generator/ ./internal/handler/ -skip TestModelSmoke
+
+# Run smoke test (requires ANTHROPIC_API_KEY)
+test-smoke:
+	go test -v -run TestModelSmoke ./internal/generator/
 
 # Deploy to AWS
 deploy:
