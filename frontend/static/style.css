@@ -4069,3 +4069,358 @@ body {
         margin-left: auto;
     }
 }
+
+/* ==========================================================================
+   Unavailable Domains Section
+   ========================================================================== */
+
+.unavailable-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+}
+
+.unavailable-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.unavailable-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--cream-dim);
+}
+
+.unavailable-subtitle {
+    font-size: 0.8rem;
+    color: var(--cream-dim);
+    opacity: 0.7;
+}
+
+.unavailable-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.75rem;
+}
+
+.unavailable-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.unavailable-card:hover {
+    opacity: 1;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.unavailable-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.unavailable-name {
+    font-size: 0.9rem;
+    color: var(--cream-dim);
+    text-decoration: line-through;
+    text-decoration-color: rgba(255, 255, 255, 0.2);
+}
+
+.unavailable-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    font-size: 0.7rem;
+    color: var(--cream-dim);
+    opacity: 0.7;
+}
+
+.expiry-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(196, 168, 85, 0.15);
+    border: 1px solid rgba(196, 168, 85, 0.3);
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--gold);
+}
+
+.expiry-badge.expiring-soon {
+    background: rgba(255, 165, 0, 0.15);
+    border-color: rgba(255, 165, 0, 0.3);
+    color: #ffa500;
+}
+
+.expiry-badge.expired {
+    background: rgba(199, 95, 95, 0.15);
+    border-color: rgba(199, 95, 95, 0.3);
+    color: var(--error);
+}
+
+.registrar-info {
+    color: var(--cream-dim);
+    opacity: 0.6;
+}
+
+.monitor-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--cream-dim);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.monitor-btn:hover {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+
+.monitor-btn.monitored {
+    background: rgba(196, 168, 85, 0.15);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.monitor-btn.pro-required {
+    position: relative;
+}
+
+.monitor-btn .pro-label {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    padding: 0.1rem 0.25rem;
+    background: var(--gold);
+    border-radius: 2px;
+    font-size: 0.55rem;
+    font-weight: 600;
+    color: #0a0a0a;
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   Monitoring View
+   ========================================================================== */
+
+.monitoring-view {
+    max-width: 800px;
+    margin: 0 auto;
+    animation: fadeIn 0.3s var(--ease);
+}
+
+.monitoring-view[hidden] {
+    display: none;
+}
+
+.monitoring-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.monitoring-title {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--cream);
+}
+
+.monitoring-subtitle {
+    font-size: 0.85rem;
+    color: var(--cream-dim);
+    margin-bottom: 2rem;
+}
+
+.monitoring-close {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--cream-dim);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.monitoring-close:hover {
+    border-color: var(--gold-dim);
+    color: var(--cream);
+}
+
+.monitoring-notifications-toggle {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+.notifications-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+}
+
+.notifications-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--gold);
+    cursor: pointer;
+}
+
+.notifications-text {
+    font-size: 0.9rem;
+    color: var(--cream);
+}
+
+.monitoring-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.monitoring-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--cream-dim);
+}
+
+.monitoring-empty p {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.monitoring-empty-hint {
+    font-size: 0.85rem;
+    opacity: 0.6;
+}
+
+.monitoring-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    animation: slideUp 0.3s var(--ease) both;
+}
+
+.monitoring-item:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.monitoring-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.monitoring-item-domain {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--cream);
+}
+
+.monitoring-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+    color: var(--cream-dim);
+}
+
+.monitoring-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.monitoring-refresh-btn {
+    padding: 0.4rem 0.75rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--cream-dim);
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.monitoring-refresh-btn:hover {
+    border-color: var(--gold-dim);
+    color: var(--cream);
+}
+
+.monitoring-remove-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--cream-dim);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.monitoring-remove-btn:hover {
+    border-color: var(--error);
+    color: var(--error);
+}
+
+/* Light mode adjustments for monitoring */
+[data-theme="light"] .unavailable-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .unavailable-card:hover {
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .unavailable-name {
+    text-decoration-color: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .monitoring-item {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .monitoring-item:hover {
+    border-color: rgba(0, 0, 0, 0.1);
+}

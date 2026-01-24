@@ -105,6 +105,19 @@ func (s *MemoryService) UpdatePreferences(ctx context.Context, userID string, pr
 	return nil
 }
 
+func (s *MemoryService) UpdateMonitoringNotifications(ctx context.Context, userID string, enabled bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	user, ok := s.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+
+	user.MonitoringNotifications = &enabled
+	return nil
+}
+
 func (s *MemoryService) GetByStripeCustomerID(ctx context.Context, customerID string) (*User, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

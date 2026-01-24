@@ -64,6 +64,12 @@ func init() {
 		log.Printf("[WARN] Failed to initialize owned handler: %v", err)
 	}
 
+	// Initialize monitoring handler
+	monitoringHandler, err := handler.NewMonitoringHandler(userService)
+	if err != nil {
+		log.Printf("[WARN] Failed to initialize monitoring handler: %v", err)
+	}
+
 	// Initialize billing handler
 	billingHandler, err := handler.NewBillingHandler(userService)
 	if err != nil {
@@ -96,6 +102,7 @@ func init() {
 		mux.Handle("GET /api/user/me", authMiddleware.RequireAuth(http.HandlerFunc(authHandler.Me)))
 		mux.Handle("GET /api/user/preferences", authMiddleware.RequireAuth(http.HandlerFunc(authHandler.GetPreferences)))
 		mux.Handle("PUT /api/user/preferences", authMiddleware.RequireAuth(http.HandlerFunc(authHandler.UpdatePreferences)))
+		mux.Handle("PUT /api/user/monitoring-notifications", authMiddleware.RequireAuth(http.HandlerFunc(authHandler.UpdateMonitoringNotifications)))
 
 		if favHandler != nil {
 			mux.Handle("GET /api/favorites", authMiddleware.RequireAuth(http.HandlerFunc(favHandler.List)))
@@ -113,6 +120,13 @@ func init() {
 			mux.Handle("GET /api/owned", authMiddleware.RequireAuth(http.HandlerFunc(ownedHandler.List)))
 			mux.Handle("POST /api/owned", authMiddleware.RequireAuth(http.HandlerFunc(ownedHandler.Add)))
 			mux.Handle("DELETE /api/owned/", authMiddleware.RequireAuth(http.HandlerFunc(ownedHandler.Remove)))
+		}
+
+		if monitoringHandler != nil {
+			mux.Handle("GET /api/monitoring", authMiddleware.RequireAuth(http.HandlerFunc(monitoringHandler.List)))
+			mux.Handle("POST /api/monitoring", authMiddleware.RequireAuth(http.HandlerFunc(monitoringHandler.Add)))
+			mux.Handle("DELETE /api/monitoring/", authMiddleware.RequireAuth(http.HandlerFunc(monitoringHandler.Remove)))
+			mux.Handle("POST /api/monitoring/", authMiddleware.RequireAuth(http.HandlerFunc(monitoringHandler.Refresh)))
 		}
 
 		// Billing routes (require auth except webhook)

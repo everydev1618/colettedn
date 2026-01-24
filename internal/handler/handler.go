@@ -95,11 +95,21 @@ type GenerateRequest struct {
 
 type GenerateResponse struct {
 	Categories       map[string][]DomainResult `json:"categories"`
+	Unavailable      []UnavailableDomain       `json:"unavailable,omitempty"`
 	Rounds           int                       `json:"rounds"`
 	Error            string                    `json:"error,omitempty"`
 	UpgradeAvailable bool                      `json:"upgradeAvailable,omitempty"`
 	// Usage info for free users
 	Usage *UsageInfo `json:"usage,omitempty"`
+}
+
+// UnavailableDomain represents a taken domain with expiry info
+type UnavailableDomain struct {
+	Name            string  `json:"name"`
+	Score           int     `json:"score"`
+	ExpirationDate  *string `json:"expirationDate,omitempty"`
+	DaysUntilExpiry *int    `json:"daysUntilExpiry,omitempty"`
+	Registrar       string  `json:"registrar,omitempty"`
 }
 
 type UsageInfo struct {
@@ -339,6 +349,7 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 	// Multi-round generation with availability checking
 	availableByCategory := make(map[string][]DomainResult)
 	var takenDomains []string
+	var takenComDomains []UnavailableDomain // Track taken .com domains for the "Unavailable" section
 	rounds := 0
 	startTime := time.Now()
 
@@ -414,6 +425,13 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 					} else {
 						// Taken - add to exclusion list for next round
 						takenDomains = append(takenDomains, d)
+						// Track taken .com domains for the "Unavailable" section
+						if strings.HasSuffix(d, ".com") {
+							takenComDomains = append(takenComDomains, UnavailableDomain{
+								Name:  d,
+								Score: scoreDomain(d),
+							})
+						}
 					}
 				} else if availabilityErr != nil {
 					// API failed - include as unverified
@@ -429,10 +447,71 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Process taken .com domains for the "Unavailable" section
+	// Sort by score (descending) and take top 10
+	if len(takenComDomains) > 0 {
+		// Sort by score descending
+		for i := 0; i < len(takenComDomains)-1; i++ {
+			for j := i + 1; j < len(takenComDomains); j++ {
+				if takenComDomains[j].Score > takenComDomains[i].Score {
+					takenComDomains[i], takenComDomains[j] = takenComDomains[j], takenComDomains[i]
+				}
+			}
+		}
+
+		// Limit to top 10
+		if len(takenComDomains) > 10 {
+			takenComDomains = takenComDomains[:10]
+		}
+
+		// Batch fetch RDAP data for expiration info
+		var domainNames []string
+		for _, d := range takenComDomains {
+			domainNames = append(domainNames, d.Name)
+		}
+		rdapResults := h.rdap.LookupMany(r.Context(), domainNames)
+
+		// Enrich with RDAP data
+		for i := range takenComDomains {
+			if info, ok := rdapResults[takenComDomains[i].Name]; ok && info.Error == "" {
+				if info.ExpirationDate != nil {
+					expStr := info.ExpirationDate.Format("2006-01-02")
+					takenComDomains[i].ExpirationDate = &expStr
+				}
+				takenComDomains[i].DaysUntilExpiry = info.DaysUntilExpiry
+				takenComDomains[i].Registrar = info.Registrar
+			}
+		}
+
+		// Re-sort by days until expiry (soonest first, nil values at end)
+		for i := 0; i < len(takenComDomains)-1; i++ {
+			for j := i + 1; j < len(takenComDomains); j++ {
+				// Compare: domains with expiry info come before those without
+				// Among those with expiry, sort by days ascending (soonest first)
+				iDays := takenComDomains[i].DaysUntilExpiry
+				jDays := takenComDomains[j].DaysUntilExpiry
+
+				shouldSwap := false
+				if iDays == nil && jDays != nil {
+					// j has expiry, i doesn't - swap
+					shouldSwap = true
+				} else if iDays != nil && jDays != nil && *jDays < *iDays {
+					// Both have expiry, j expires sooner - swap
+					shouldSwap = true
+				}
+
+				if shouldSwap {
+					takenComDomains[i], takenComDomains[j] = takenComDomains[j], takenComDomains[i]
+				}
+			}
+		}
+	}
+
 	// Build response with usage info
 	response := GenerateResponse{
-		Categories: availableByCategory,
-		Rounds:     rounds,
+		Categories:  availableByCategory,
+		Unavailable: takenComDomains,
+		Rounds:      rounds,
 	}
 
 	// Include usage info for tracking

@@ -94,6 +94,42 @@ Resources:
             Path: /
             Method: ANY
 
+  # Notifier Lambda - sends expiration notifications daily
+  NotifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: NotifierFunction
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Architectures:
+        - x86_64
+      Timeout: 300  # 5 minutes for processing all monitored domains
+      MemorySize: 256
+      Environment:
+        Variables:
+          APP_URL: !Sub "https://${DomainName}"
+          FROM_EMAIL: !Sub "noreply@${DomainName}"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MonitoringTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  ses:FromAddress: !Sub "noreply@${DomainName}"
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 14 * * ? *)  # Daily at 2 PM UTC (9 AM EST, 6 AM PST)
+            Description: Daily domain expiration notification check
+            Enabled: true
+
   # DynamoDB table for caching
   CacheTable:
     Type: AWS::DynamoDB::Table

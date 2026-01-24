@@ -13,6 +13,7 @@ let authToken = localStorage.getItem('authToken');
 let currentUser = null;
 let userFavorites = new Set();
 let userOwnedDomains = new Map(); // domain -> { acquisitionType, createdAt }
+let userMonitoring = new Map(); // domain -> { expirationDate, daysUntilExpiry, registrar }
 let usageInfo = null; // { used, limit, unlimited }
 
 // Tab state
@@ -72,6 +73,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyList = document.getElementById('history-list');
     const historyClose = document.getElementById('history-close');
     const historyBtn = document.getElementById('history-btn');
+
+    // Monitoring view elements
+    const monitoringView = document.getElementById('monitoring-view');
+    const monitoringList = document.getElementById('monitoring-list');
+    const monitoringClose = document.getElementById('monitoring-close');
+    const monitoringBtn = document.getElementById('monitoring-btn');
 
     // Upgrade modal elements
     const upgradeModal = document.getElementById('upgrade-modal');
@@ -178,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateAuthUI();
                 await fetchFavorites();
                 await fetchOwnedDomains();
+                await fetchMonitoredDomains();
             } else {
                 // Invalid token
                 logout();
@@ -220,6 +228,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function fetchMonitoredDomains() {
+        if (!authToken) return;
+        const isPro = currentUser && currentUser.subscriptionTier === 'pro';
+        if (!isPro) return;
+        try {
+            const response = await apiFetch('/api/monitoring');
+            if (response.ok) {
+                const data = await response.json();
+                userMonitoring = new Map();
+                for (const d of data.monitoring) {
+                    userMonitoring.set(d.domain.toLowerCase(), {
+                        expirationDate: d.expirationDate,
+                        daysUntilExpiry: d.daysUntilExpiry,
+                        registrar: d.registrar,
+                        createdAt: d.createdAt,
+                        lastCheckedAt: d.lastCheckedAt
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch monitored domains:', err);
+        }
+    }
+
     function updateAuthUI() {
         const isPro = currentUser && currentUser.subscriptionTier === 'pro';
 
@@ -246,6 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
             upgradeMenuBtn.hidden = isPro;
             manageBtn.hidden = !isPro;
 
+            // Show monitoring button only for Pro users
+            monitoringBtn.hidden = !isPro;
+
             // Show admin button only for admin email
             const isAdmin = currentUser.email === ADMIN_EMAIL;
             adminBtn.hidden = !isAdmin;
@@ -261,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = null;
         userFavorites.clear();
         userOwnedDomains.clear();
+        userMonitoring.clear();
         localStorage.removeItem('authToken');
         updateAuthUI();
         // POST to logout endpoint (fire and forget)
@@ -579,6 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
         welcomeContent.hidden = true;
         resultsEl.hidden = true;
         historyView.hidden = true;
+        monitoringView.hidden = true;
         favoritesView.hidden = false;
         // Hide registration view if showing
         const regView = document.getElementById('registration-view');
@@ -589,6 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideFavoritesView() {
         favoritesView.hidden = true;
         historyView.hidden = true;
+        monitoringView.hidden = true;
         const activeTab = getActiveTab();
         if (activeTab && Object.keys(activeTab.categories).length > 0) {
             switchToTab(activeTab.id);
@@ -614,6 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
         welcomeContent.hidden = true;
         resultsEl.hidden = true;
         favoritesView.hidden = true;
+        monitoringView.hidden = true;
         historyView.hidden = false;
         // Hide registration view if showing
         const regView = document.getElementById('registration-view');
@@ -624,6 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideHistoryView() {
         historyView.hidden = true;
         favoritesView.hidden = true;
+        monitoringView.hidden = true;
         const activeTab = getActiveTab();
         if (activeTab && Object.keys(activeTab.categories).length > 0) {
             switchToTab(activeTab.id);
@@ -757,6 +797,308 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hours < 24) return `${hours}h ago`;
         if (days < 7) return `${days}d ago`;
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    // Monitoring view handlers
+    monitoringBtn.addEventListener('click', () => {
+        dropdownMenu.hidden = true;
+        userDropdown.classList.remove('open');
+        showMonitoringView();
+    });
+
+    async function showMonitoringView() {
+        // Check if user is logged in
+        if (!currentUser) {
+            openLoginModal();
+            return;
+        }
+        // PRO only feature
+        if (currentUser.subscriptionTier !== 'pro') {
+            openUpgradeModal();
+            return;
+        }
+        welcomeContent.hidden = true;
+        resultsEl.hidden = true;
+        favoritesView.hidden = true;
+        historyView.hidden = true;
+        monitoringView.hidden = false;
+        // Hide registration view if showing
+        const regView = document.getElementById('registration-view');
+        if (regView) regView.hidden = true;
+        await renderMonitoringView();
+    }
+
+    function hideMonitoringView() {
+        monitoringView.hidden = true;
+        favoritesView.hidden = true;
+        historyView.hidden = true;
+        const activeTab = getActiveTab();
+        if (activeTab && Object.keys(activeTab.categories).length > 0) {
+            switchToTab(activeTab.id);
+        } else {
+            welcomeContent.hidden = false;
+        }
+    }
+
+    monitoringClose.addEventListener('click', hideMonitoringView);
+
+    async function renderMonitoringView() {
+        // Refresh monitored domains from server
+        await fetchMonitoredDomains();
+
+        // Load notification preference
+        const notificationsCheckbox = document.getElementById('monitoring-notifications-checkbox');
+        if (notificationsCheckbox) {
+            try {
+                const response = await apiFetch('/api/user/preferences');
+                if (response.ok) {
+                    const data = await response.json();
+                    notificationsCheckbox.checked = data.monitoringNotifications !== false;
+                }
+            } catch (err) {
+                console.error('Failed to load notification preference:', err);
+            }
+
+            // Add change handler (remove old one first to avoid duplicates)
+            notificationsCheckbox.onchange = async () => {
+                try {
+                    await apiFetch('/api/user/monitoring-notifications', {
+                        method: 'PUT',
+                        body: JSON.stringify({ enabled: notificationsCheckbox.checked })
+                    });
+                } catch (err) {
+                    console.error('Failed to update notification preference:', err);
+                    // Revert on error
+                    notificationsCheckbox.checked = !notificationsCheckbox.checked;
+                }
+            };
+        }
+
+        if (userMonitoring.size === 0) {
+            monitoringList.innerHTML = `
+                <div class="monitoring-empty">
+                    <p>No domains being monitored</p>
+                    <p class="monitoring-empty-hint">Click the monitor button on unavailable domains to track them</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Sort by days until expiry (soonest first, null values at end)
+        const sortedEntries = Array.from(userMonitoring.entries()).sort((a, b) => {
+            const aDays = a[1].daysUntilExpiry;
+            const bDays = b[1].daysUntilExpiry;
+
+            if (aDays === null && bDays === null) return 0;
+            if (aDays === null) return 1;  // a goes after b
+            if (bDays === null) return -1; // a goes before b
+            return aDays - bDays; // ascending (soonest first)
+        });
+
+        const items = sortedEntries.map(([domain, info], i) => {
+            const expiryBadge = formatExpiryBadge(info.daysUntilExpiry, info.expirationDate);
+            const registrarText = info.registrar ? `<span class="registrar-info">${escapeHtml(info.registrar)}</span>` : '';
+
+            return `
+                <div class="monitoring-item" style="animation-delay: ${i * 0.05}s">
+                    <div class="monitoring-item-info">
+                        <div class="monitoring-item-domain">${escapeHtml(domain)}</div>
+                        <div class="monitoring-item-meta">
+                            ${expiryBadge}
+                            ${registrarText}
+                        </div>
+                    </div>
+                    <div class="monitoring-item-actions">
+                        <button class="monitoring-refresh-btn" data-domain="${escapeHtml(domain)}">Refresh</button>
+                        <button class="monitoring-remove-btn" data-domain="${escapeHtml(domain)}" title="Remove">&times;</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        monitoringList.innerHTML = items.join('');
+
+        // Add refresh handlers
+        monitoringList.querySelectorAll('.monitoring-refresh-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const domain = btn.dataset.domain;
+                btn.disabled = true;
+                btn.textContent = '...';
+                try {
+                    const response = await apiFetch(`/api/monitoring/${encodeURIComponent(domain)}/refresh`, {
+                        method: 'POST'
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.monitoring) {
+                            userMonitoring.set(domain.toLowerCase(), {
+                                expirationDate: data.monitoring.expirationDate,
+                                daysUntilExpiry: data.monitoring.daysUntilExpiry,
+                                registrar: data.monitoring.registrar,
+                                createdAt: data.monitoring.createdAt,
+                                lastCheckedAt: data.monitoring.lastCheckedAt
+                            });
+                        }
+                        await renderMonitoringView();
+                    }
+                } catch (err) {
+                    console.error('Failed to refresh domain:', err);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Refresh';
+                }
+            });
+        });
+
+        // Add remove handlers
+        monitoringList.querySelectorAll('.monitoring-remove-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const domain = btn.dataset.domain;
+                try {
+                    const response = await apiFetch(`/api/monitoring/${encodeURIComponent(domain)}`, {
+                        method: 'DELETE'
+                    });
+                    if (response.ok) {
+                        userMonitoring.delete(domain.toLowerCase());
+                        await renderMonitoringView();
+                    }
+                } catch (err) {
+                    console.error('Failed to remove from monitoring:', err);
+                }
+            });
+        });
+    }
+
+    async function addToMonitoring(domain, expirationDate, daysUntilExpiry, registrar) {
+        try {
+            const response = await apiFetch('/api/monitoring', {
+                method: 'POST',
+                body: JSON.stringify({ domain, expirationDate, daysUntilExpiry, registrar })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.monitoring) {
+                    userMonitoring.set(domain.toLowerCase(), {
+                        expirationDate: data.monitoring.expirationDate,
+                        daysUntilExpiry: data.monitoring.daysUntilExpiry,
+                        registrar: data.monitoring.registrar,
+                        createdAt: data.monitoring.createdAt,
+                        lastCheckedAt: data.monitoring.lastCheckedAt
+                    });
+                }
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error('Failed to add to monitoring:', err);
+            return false;
+        }
+    }
+
+    async function removeFromMonitoring(domain) {
+        try {
+            const response = await apiFetch(`/api/monitoring/${encodeURIComponent(domain)}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                userMonitoring.delete(domain.toLowerCase());
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error('Failed to remove from monitoring:', err);
+            return false;
+        }
+    }
+
+    function formatExpiryBadge(daysUntilExpiry, expirationDate) {
+        if (daysUntilExpiry === null && !expirationDate) {
+            return '<span class="expiry-badge">Expiry unknown</span>';
+        }
+
+        let displayText = '';
+        let badgeClass = 'expiry-badge';
+
+        if (daysUntilExpiry !== null && daysUntilExpiry !== undefined) {
+            if (daysUntilExpiry <= 0) {
+                displayText = 'Expired';
+                badgeClass += ' expired';
+            } else if (daysUntilExpiry <= 30) {
+                displayText = `${daysUntilExpiry}d`;
+                badgeClass += ' expiring-soon';
+            } else if (daysUntilExpiry <= 60) {
+                displayText = `${Math.round(daysUntilExpiry / 7)}w`;
+                badgeClass += ' expiring-soon';
+            } else if (daysUntilExpiry <= 365) {
+                displayText = `${Math.round(daysUntilExpiry / 30)}mo`;
+            } else {
+                displayText = `${Math.round(daysUntilExpiry / 365)}y`;
+            }
+        } else if (expirationDate) {
+            displayText = expirationDate;
+        }
+
+        return `<span class="${badgeClass}">${displayText}</span>`;
+    }
+
+    function renderUnavailableSection(unavailable) {
+        if (!unavailable || unavailable.length === 0) {
+            return '';
+        }
+
+        const isPro = currentUser && currentUser.subscriptionTier === 'pro';
+
+        const cards = unavailable.map(d => {
+            const isMonitored = userMonitoring.has(d.name.toLowerCase());
+            const expiryBadge = formatExpiryBadge(d.daysUntilExpiry, d.expirationDate);
+            const registrarText = d.registrar ? `<span class="registrar-info">${escapeHtml(d.registrar)}</span>` : '';
+
+            let monitorBtn = '';
+            if (isPro) {
+                monitorBtn = `
+                    <button class="monitor-btn ${isMonitored ? 'monitored' : ''}"
+                            data-domain="${escapeHtml(d.name)}"
+                            data-expiration="${d.expirationDate || ''}"
+                            data-days="${d.daysUntilExpiry !== null ? d.daysUntilExpiry : ''}"
+                            data-registrar="${escapeHtml(d.registrar || '')}"
+                            title="${isMonitored ? 'Remove from monitoring' : 'Monitor this domain'}">
+                        ${isMonitored ? '◉' : '◯'}
+                    </button>
+                `;
+            } else {
+                monitorBtn = `
+                    <button class="monitor-btn pro-required" title="PRO required">
+                        ◯
+                        <span class="pro-label">PRO</span>
+                    </button>
+                `;
+            }
+
+            return `
+                <div class="unavailable-card">
+                    <div class="unavailable-info">
+                        <div class="unavailable-name">${escapeHtml(d.name)}</div>
+                        <div class="unavailable-meta">
+                            ${expiryBadge}
+                            ${registrarText}
+                        </div>
+                    </div>
+                    ${monitorBtn}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="unavailable-section">
+                <div class="unavailable-header">
+                    <h3 class="unavailable-title">Unavailable</h3>
+                    <span class="unavailable-subtitle">Monitor these domains for expiration</span>
+                </div>
+                <div class="unavailable-grid">
+                    ${cards}
+                </div>
+            </div>
+        `;
     }
 
     // Save search to history (PRO only)
@@ -1022,6 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hide other views
         favoritesView.hidden = true;
         historyView.hidden = true;
+        monitoringView.hidden = true;
         welcomeContent.hidden = true;
         const regView = document.getElementById('registration-view');
         if (regView) regView.hidden = true;
@@ -1368,6 +1711,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Results come back with availability already checked
             tab.categories = data.categories || {};
+            tab.unavailable = data.unavailable || [];
             tab.rounds = data.rounds || 1;
             tab.isLoading = false;
             tab.error = null;
@@ -1472,7 +1816,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Results CTA removed - let users enjoy results without being pushed to upgrade
 
-        resultsEl.innerHTML = searchPhraseHtml + sectionsHtml;
+        // Render unavailable domains section
+        const unavailableHtml = renderUnavailableSection(tab.unavailable);
+
+        resultsEl.innerHTML = searchPhraseHtml + sectionsHtml + unavailableHtml;
         resultsEl.hidden = false;
         welcomeContent.hidden = true;
 
@@ -1538,6 +1885,47 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Add monitor button handlers (for unavailable section)
+        resultsEl.querySelectorAll('.unavailable-section .monitor-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+
+                // If PRO required button, open upgrade modal
+                if (btn.classList.contains('pro-required')) {
+                    if (!currentUser) {
+                        openLoginModal();
+                    } else {
+                        openUpgradeModal();
+                    }
+                    return;
+                }
+
+                const domain = btn.dataset.domain;
+                const isMonitored = userMonitoring.has(domain.toLowerCase());
+
+                if (isMonitored) {
+                    // Remove from monitoring
+                    const success = await removeFromMonitoring(domain);
+                    if (success) {
+                        btn.classList.remove('monitored');
+                        btn.textContent = '◯';
+                        btn.title = 'Monitor this domain';
+                    }
+                } else {
+                    // Add to monitoring
+                    const expirationDate = btn.dataset.expiration || null;
+                    const daysUntilExpiry = btn.dataset.days ? parseInt(btn.dataset.days) : null;
+                    const registrar = btn.dataset.registrar || '';
+
+                    const success = await addToMonitoring(domain, expirationDate, daysUntilExpiry, registrar);
+                    if (success) {
+                        btn.classList.add('monitored');
+                        btn.textContent = '◉';
+                        btn.title = 'Remove from monitoring';
+                    }
+                }
+            });
+        });
 
         // Add check .com button handlers
         resultsEl.querySelectorAll('.check-com-btn').forEach(btn => {
@@ -1835,6 +2223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsEl.hidden = true;
         favoritesView.hidden = true;
         historyView.hidden = true;
+        monitoringView.hidden = true;
         welcomeContent.hidden = false;
         // Hide registration view if showing
         const regView = document.getElementById('registration-view');
@@ -2056,6 +2445,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsEl.hidden = true;
         favoritesView.hidden = true;
         historyView.hidden = true;
+        monitoringView.hidden = true;
 
         // Show registration view
         registrationView.hidden = false;

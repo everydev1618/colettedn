@@ -233,9 +233,10 @@ func (h *AuthHandler) GetAuthService() auth.TokenService {
 // Preferences endpoints
 
 type PreferencesResponse struct {
-	PreferredRegistrar string `json:"preferredRegistrar"`
-	Theme              string `json:"theme"`
-	Error              string `json:"error,omitempty"`
+	PreferredRegistrar      string `json:"preferredRegistrar"`
+	Theme                   string `json:"theme"`
+	MonitoringNotifications bool   `json:"monitoringNotifications"`
+	Error                   string `json:"error,omitempty"`
 }
 
 type UpdatePreferencesRequest struct {
@@ -257,8 +258,9 @@ func (h *AuthHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, PreferencesResponse{
-		PreferredRegistrar: fullUser.PreferredRegistrar,
-		Theme:              fullUser.Theme,
+		PreferredRegistrar:      fullUser.PreferredRegistrar,
+		Theme:                   fullUser.Theme,
+		MonitoringNotifications: fullUser.MonitoringNotificationsEnabled(),
 	})
 }
 
@@ -295,7 +297,36 @@ func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusOK, PreferencesResponse{
-		PreferredRegistrar: req.PreferredRegistrar,
-		Theme:              req.Theme,
+		PreferredRegistrar:      req.PreferredRegistrar,
+		Theme:                   req.Theme,
+		MonitoringNotifications: true, // This endpoint doesn't change this setting
+	})
+}
+
+type UpdateMonitoringNotificationsRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (h *AuthHandler) UpdateMonitoringNotifications(w http.ResponseWriter, r *http.Request) {
+	u := auth.GetUser(r.Context())
+	if u == nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+		return
+	}
+
+	var req UpdateMonitoringNotificationsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	if err := h.userService.UpdateMonitoringNotifications(r.Context(), u.UserID, req.Enabled); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to update preferences"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"success":                 true,
+		"monitoringNotifications": req.Enabled,
 	})
 }

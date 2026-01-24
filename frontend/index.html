@@ -239,6 +239,9 @@
                         <button id="history-btn" class="dropdown-item">
                             <span class="dropdown-icon">↺</span> History
                         </button>
+                        <button id="monitoring-btn" class="dropdown-item" hidden>
+                            <span class="dropdown-icon">◉</span> Monitoring
+                        </button>
                         <button id="upgrade-menu-btn" class="dropdown-item" hidden>
                             <span class="dropdown-icon">↑</span> Go Pro
                         </button>
@@ -336,6 +339,27 @@
                     <div class="history-empty">
                         <p>No searches yet</p>
                         <p class="history-empty-hint">Your searches will appear here</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monitoring View -->
+            <div id="monitoring-view" class="monitoring-view" hidden>
+                <div class="monitoring-header">
+                    <h2 class="monitoring-title">Domain Monitoring</h2>
+                    <button id="monitoring-close" class="monitoring-close">&times; Back to search</button>
+                </div>
+                <p class="monitoring-subtitle">Track taken domains and get notified when they become available.</p>
+                <div class="monitoring-notifications-toggle">
+                    <label class="notifications-label">
+                        <input type="checkbox" id="monitoring-notifications-checkbox" checked>
+                        <span class="notifications-text">Email notifications when domains expire</span>
+                    </label>
+                </div>
+                <div id="monitoring-list" class="monitoring-list">
+                    <div class="monitoring-empty">
+                        <p>No domains being monitored</p>
+                        <p class="monitoring-empty-hint">Click the monitor button on unavailable domains to track them</p>
                     </div>
                 </div>
             </div>

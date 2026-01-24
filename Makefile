@@ -17,6 +17,10 @@ build-ColetteDNFunction:
 	cp -r frontend $(ARTIFACTS_DIR)/
 	cd cmd/lambda && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o $(ARTIFACTS_DIR)/bootstrap .
 
+# Notifier Lambda build (used by SAM)
+build-NotifierFunction:
+	cd cmd/notifier && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags "lambda,lambda.norpc" -o $(ARTIFACTS_DIR)/bootstrap .
+
 # SAM local testing
 sam-local:
 	sam local start-api
