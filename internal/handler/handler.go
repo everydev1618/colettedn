@@ -18,7 +18,6 @@ import (
 	"github.com/everydev1618/colettedn/internal/cache"
 	"github.com/everydev1618/colettedn/internal/generator"
 	"github.com/everydev1618/colettedn/internal/killswitch"
-	"github.com/everydev1618/colettedn/internal/namecheap"
 	"github.com/everydev1618/colettedn/internal/ratelimit"
 	"github.com/everydev1618/colettedn/internal/rdap"
 	"github.com/everydev1618/colettedn/internal/user"
@@ -26,7 +25,6 @@ import (
 
 type Handler struct {
 	gen         *generator.Generator
-	nc          *namecheap.Client
 	cache       cache.Cacher
 	limiter     *ratelimit.Limiter
 	ks          *killswitch.KillSwitch
@@ -64,17 +62,6 @@ func New(userService user.UserService) *Handler {
 		h.ks = killswitch.New()
 	}
 
-	// Initialize Namecheap client if configured
-	if os.Getenv("NAMECHEAP_API_KEY") != "" {
-		h.nc = namecheap.New(namecheap.Config{
-			APIUser:  os.Getenv("NAMECHEAP_API_USER"),
-			APIKey:   os.Getenv("NAMECHEAP_API_KEY"),
-			Username: os.Getenv("NAMECHEAP_USERNAME"),
-			ClientIP: os.Getenv("NAMECHEAP_CLIENT_IP"),
-			Sandbox:  os.Getenv("NAMECHEAP_SANDBOX") == "true",
-		})
-	}
-
 	// Initialize cache (24 hour TTL for availability results)
 	// Use DynamoDB in Lambda, SQLite locally
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
@@ -93,8 +80,8 @@ func New(userService user.UserService) *Handler {
 		}
 	}
 
-	// Initialize RDAP client for domain info lookups (expiration, registrar, etc.)
-	// RDAP data changes infrequently, so use 7-day cache TTL
+	// Initialize RDAP client for domain availability and info lookups
+	// RDAP queries authoritative registries directly for accurate results
 	h.rdap = rdap.New()
 	h.rdapCache = rdap.NewCache(7 * 24 * time.Hour)
 
@@ -328,9 +315,12 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 
 	// Convert TLD style to actual TLDs
 	var tlds []string
-	if req.TLDStyle == "creative" {
+	switch req.TLDStyle {
+	case "creative":
 		tlds = []string{".com", ".io", ".ai", ".app", ".dev", ".co"}
-	} else {
+	case "global":
+		tlds = []string{".co.uk", ".de", ".eu", ".ca", ".com.au", ".co.za"}
+	default:
 		// Traditional (default)
 		tlds = []string{".com", ".co", ".net", ".org"}
 	}
@@ -398,10 +388,10 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 			newDomains = append(newDomains, domains...)
 		}
 
-		// Check availability (if Namecheap is configured)
+		// Check availability via RDAP (authoritative registry data)
 		availabilityMap := make(map[string]*availabilityInfo)
 		var availabilityErr error
-		if h.nc != nil && len(newDomains) > 0 {
+		if len(newDomains) > 0 {
 			availabilityMap, availabilityErr = h.checkDomainsAvailability(r, newDomains)
 		}
 
@@ -416,8 +406,6 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 						result := DomainResult{
 							Name:      d,
 							Available: &info.available,
-							IsPremium: &info.isPremium,
-							Price:     info.price,
 							FromCache: info.fromCache,
 							CheckedAt: info.checkedAt,
 							Score:     scoreDomain(d),
@@ -427,8 +415,8 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 						// Taken - add to exclusion list for next round
 						takenDomains = append(takenDomains, d)
 					}
-				} else if h.nc == nil || availabilityErr != nil {
-					// No availability checker OR API failed - include as unverified
+				} else if availabilityErr != nil {
+					// API failed - include as unverified
 					result := DomainResult{Name: d, Score: scoreDomain(d)}
 					availableByCategory[cat] = append(availableByCategory[cat], result)
 				}
@@ -436,8 +424,7 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check if we have enough available domains in each category
-		// Also stop if Namecheap API is failing (no point in multiple rounds)
-		if hasEnoughPerCategory(availableByCategory) || h.nc == nil || availabilityErr != nil {
+		if hasEnoughPerCategory(availableByCategory) || availabilityErr != nil {
 			break
 		}
 	}
@@ -468,8 +455,6 @@ func (h *Handler) GenerateDomains(w http.ResponseWriter, r *http.Request) {
 
 type availabilityInfo struct {
 	available bool
-	isPremium bool
-	price     *float64
 	fromCache bool
 	checkedAt *int64
 }
@@ -485,8 +470,6 @@ func (h *Handler) checkDomainsAvailability(r *http.Request, domains []string) (m
 			checkedAt := c.CheckedAt.Unix()
 			result[d] = &availabilityInfo{
 				available: c.Available,
-				isPremium: c.IsPremium,
-				price:     c.Price,
 				fromCache: true,
 				checkedAt: &checkedAt,
 			}
@@ -496,26 +479,24 @@ func (h *Handler) checkDomainsAvailability(r *http.Request, domains []string) (m
 		uncached = domains
 	}
 
-	// Fetch uncached from API
+	// Fetch uncached from RDAP (authoritative registry data)
 	if len(uncached) > 0 {
-		apiResults, err := h.nc.CheckAvailability(r.Context(), uncached)
-		if err != nil {
-			log.Printf("[NAMECHEAP_ERROR] Failed to check %d domains: %v", len(uncached), err)
-			return result, err
-		}
+		rdapResults := h.rdap.CheckAvailabilityMany(r.Context(), uncached)
 		now := time.Now().Unix()
-		for _, ar := range apiResults {
-			key := strings.ToLower(ar.Domain)
+		for domain, ar := range rdapResults {
+			key := strings.ToLower(domain)
+			if ar.Error != "" {
+				log.Printf("[RDAP_ERROR] Failed to check %s: %s", domain, ar.Error)
+				continue
+			}
 			result[key] = &availabilityInfo{
 				available: ar.Available,
-				isPremium: ar.IsPremium,
-				price:     ar.Price,
 				fromCache: false,
 				checkedAt: &now,
 			}
-			// Cache the result
+			// Cache the result (no premium/price info with RDAP)
 			if h.cache != nil {
-				h.cache.Set(key, ar.Available, ar.IsPremium, ar.Price)
+				h.cache.Set(key, ar.Available, false, nil)
 			}
 		}
 	}
@@ -542,11 +523,6 @@ func hasEnoughPerCategory(categories map[string][]DomainResult) bool {
 }
 
 func (h *Handler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
-	if h.nc == nil {
-		writeJSON(w, http.StatusServiceUnavailable, CheckResponse{Error: "Availability checking not configured"})
-		return
-	}
-
 	var req CheckRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, CheckResponse{Error: "Invalid request body"})
@@ -593,43 +569,33 @@ func (h *Handler) CheckAvailability(w http.ResponseWriter, r *http.Request) {
 		uncached = domains
 	}
 
-	// Fetch uncached from API
-	apiResults := make(map[string]namecheap.DomainStatus)
+	// Fetch uncached from RDAP (authoritative registry data)
+	rdapResults := make(map[string]*rdap.AvailabilityResult)
 	if len(uncached) > 0 {
-		results, err := h.nc.CheckAvailability(r.Context(), uncached)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, CheckResponse{Error: err.Error()})
-			return
-		}
-
-		for _, r := range results {
-			key := strings.ToLower(r.Domain)
-			apiResults[key] = r
-			// Cache the result
-			if h.cache != nil {
-				h.cache.Set(key, r.Available, r.IsPremium, r.Price)
+		results := h.rdap.CheckAvailabilityMany(r.Context(), uncached)
+		for domain, result := range results {
+			key := strings.ToLower(domain)
+			rdapResults[key] = result
+			// Cache the result (no premium/price info with RDAP)
+			if h.cache != nil && result.Error == "" {
+				h.cache.Set(key, result.Available, false, nil)
 			}
 		}
 	}
 
 	// Build response
 	results := make([]DomainResult, len(domains))
+	now := time.Now().Unix()
 	for i, d := range domains {
 		results[i] = DomainResult{Name: d}
 
 		if cached, ok := cachedResults[d]; ok {
 			results[i].Available = &cached.Available
-			results[i].IsPremium = &cached.IsPremium
-			results[i].Price = cached.Price
 			results[i].FromCache = true
 			checkedAt := cached.CheckedAt.Unix()
 			results[i].CheckedAt = &checkedAt
-		} else if api, ok := apiResults[d]; ok {
-			results[i].Available = &api.Available
-			results[i].IsPremium = &api.IsPremium
-			results[i].Price = api.Price
-			// Fresh result, not from cache
-			now := time.Now().Unix()
+		} else if rdapResult, ok := rdapResults[d]; ok && rdapResult.Error == "" {
+			results[i].Available = &rdapResult.Available
 			results[i].CheckedAt = &now
 		}
 	}
@@ -766,7 +732,8 @@ func isDomainIdea(input string) bool {
 	input = strings.TrimSpace(strings.ToLower(input))
 
 	// Common TLDs to check for
-	tlds := []string{".com", ".io", ".co", ".net", ".org", ".ai", ".app", ".dev", ".me", ".xyz", ".tech", ".site", ".online"}
+	// Multi-part TLDs must come first to match correctly (e.g., .co.uk before .co)
+	tlds := []string{".co.uk", ".com.au", ".co.za", ".com", ".io", ".co", ".net", ".org", ".ai", ".app", ".dev", ".me", ".xyz", ".tech", ".site", ".online", ".de", ".eu", ".ca"}
 
 	for _, tld := range tlds {
 		if strings.HasSuffix(input, tld) {
@@ -861,20 +828,18 @@ func (h *Handler) CheckComSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if .com is available via Namecheap first
-	if h.nc != nil {
-		results, err := h.nc.CheckAvailability(r.Context(), []string{comDomain})
-		if err == nil && len(results) > 0 && results[0].Available {
-			// .com is available for registration - no RDAP needed
-			status := ComSiteAvailable
-			cacheComSiteStatus(comDomain, status, nil, nil, "")
-			writeJSON(w, http.StatusOK, CheckComResponse{
-				Domain:    comDomain,
-				Status:    status,
-				FromCache: false,
-			})
-			return
-		}
+	// Check if .com is available via RDAP
+	availResult, err := h.rdap.CheckAvailability(r.Context(), comDomain)
+	if err == nil && availResult.Error == "" && availResult.Available {
+		// .com is available for registration - no site check needed
+		status := ComSiteAvailable
+		cacheComSiteStatus(comDomain, status, nil, nil, "")
+		writeJSON(w, http.StatusOK, CheckComResponse{
+			Domain:    comDomain,
+			Status:    status,
+			FromCache: false,
+		})
+		return
 	}
 
 	// .com is taken - check if it has an active site
@@ -909,7 +874,8 @@ func (h *Handler) CheckComSite(w http.ResponseWriter, r *http.Request) {
 
 func extractBaseName(domain string) string {
 	// Remove TLD to get base name
-	tlds := []string{".com", ".io", ".co", ".net", ".org", ".ai", ".app", ".dev", ".me", ".xyz", ".tech", ".site", ".online"}
+	// Multi-part TLDs must come first to match correctly (e.g., .co.uk before .co)
+	tlds := []string{".co.uk", ".com.au", ".co.za", ".com", ".io", ".co", ".net", ".org", ".ai", ".app", ".dev", ".me", ".xyz", ".tech", ".site", ".online", ".de", ".eu", ".ca"}
 	for _, tld := range tlds {
 		if strings.HasSuffix(domain, tld) {
 			return strings.TrimSuffix(domain, tld)

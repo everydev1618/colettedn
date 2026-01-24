@@ -295,3 +295,105 @@ func (d *DomainInfo) IsExpired() bool {
 	}
 	return *d.DaysUntilExpiry < 0
 }
+
+// AvailabilityResult represents the availability status of a domain
+type AvailabilityResult struct {
+	Domain    string `json:"domain"`
+	Available bool   `json:"available"`
+	Error     string `json:"error,omitempty"`
+}
+
+// CheckAvailability checks if a single domain is available for registration
+// Returns available=true if RDAP returns 404 (not found)
+func (c *Client) CheckAvailability(ctx context.Context, domain string) (*AvailabilityResult, error) {
+	domain = strings.ToLower(strings.TrimSpace(domain))
+
+	tld := getTLD(domain)
+	if tld == "" {
+		return nil, fmt.Errorf("invalid domain format: %s", domain)
+	}
+
+	// Get RDAP server for this TLD
+	c.mu.RLock()
+	server, ok := c.bootstrap[tld]
+	c.mu.RUnlock()
+
+	if !ok {
+		return &AvailabilityResult{
+			Domain: domain,
+			Error:  fmt.Sprintf("RDAP not supported for .%s", tld),
+		}, nil
+	}
+
+	url := fmt.Sprintf("%s/domain/%s", server, domain)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/rdap+json")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("RDAP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 404 = domain not found = available
+	if resp.StatusCode == http.StatusNotFound {
+		return &AvailabilityResult{
+			Domain:    domain,
+			Available: true,
+		}, nil
+	}
+
+	// 200 = domain exists = taken
+	if resp.StatusCode == http.StatusOK {
+		return &AvailabilityResult{
+			Domain:    domain,
+			Available: false,
+		}, nil
+	}
+
+	// Other status codes are errors
+	return nil, fmt.Errorf("RDAP error: status %d", resp.StatusCode)
+}
+
+// CheckAvailabilityMany checks multiple domains concurrently
+func (c *Client) CheckAvailabilityMany(ctx context.Context, domains []string) map[string]*AvailabilityResult {
+	results := make(map[string]*AvailabilityResult)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Limit concurrency to avoid rate limits
+	sem := make(chan struct{}, 10)
+
+	for _, domain := range domains {
+		wg.Add(1)
+		go func(d string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			result, err := c.CheckAvailability(ctx, d)
+			mu.Lock()
+			if err != nil {
+				results[d] = &AvailabilityResult{Domain: d, Error: err.Error()}
+			} else {
+				results[d] = result
+			}
+			mu.Unlock()
+		}(domain)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// IsTLDSupported returns true if RDAP lookups are supported for the given TLD
+func (c *Client) IsTLDSupported(tld string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	_, ok := c.bootstrap[strings.ToLower(tld)]
+	return ok
+}

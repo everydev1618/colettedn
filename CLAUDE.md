@@ -2,21 +2,19 @@
 
 ## Project Overview
 
-ColetteDN is an AI-powered domain name brainstorming tool. Users describe their project and get categorized domain suggestions with real-time availability checking via Namecheap API.
+ColetteDN is an AI-powered domain name brainstorming tool. Users describe their project and get categorized domain suggestions with real-time availability checking via RDAP (authoritative registry lookups).
 
 ## Before Making Infrastructure Changes
 
 **ALWAYS read `docs/infrastructure.md` first** to understand:
 - AWS region requirements (us-east-1 only)
-- VPC/networking setup
 - Environment variables
-- Namecheap API dependencies
+- RDAP domain availability checking
 
 ## Key Constraints
 
 1. **Region**: All AWS resources MUST be in `us-east-1`
-2. **Static IP**: Lambda uses NAT Gateway EIP (`100.52.14.203`) for Namecheap API - this IP must stay whitelisted
-3. **Timeouts**: API Gateway has 29s limit; use Function URL for long operations
+2. **Timeouts**: API Gateway has 29s limit; use Function URL for long operations
 
 ## Project Structure
 
@@ -27,7 +25,7 @@ ColetteDN is an AI-powered domain name brainstorming tool. Users describe their 
 │   ├── generator/      # Claude API integration
 │   ├── handler/        # HTTP handlers
 │   ├── killswitch/     # Cost protection
-│   ├── namecheap/      # Domain availability API
+│   ├── rdap/           # Domain availability via RDAP
 │   └── ratelimit/      # Rate limiting
 ├── frontend/           # Static HTML/JS
 ├── docs/               # Infrastructure documentation

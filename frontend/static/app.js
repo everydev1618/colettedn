@@ -19,6 +19,7 @@ let usageInfo = null; // { used, limit, unlimited }
 let tabs = [];          // Array of tab objects
 let activeTabId = null; // Currently active tab
 let tabCounter = 0;     // For unique IDs
+const FREE_TAB_LIMIT = 3; // Free users can have 3 tabs open
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('generate-form');
@@ -98,6 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const ownedDomainName = document.getElementById('owned-domain-name');
     const ownedError = document.getElementById('owned-error');
     let pendingOwnedDomain = null;
+
+    // Tab limit modal elements
+    const tabLimitModal = document.getElementById('tab-limit-modal');
+    const tabLimitClose = document.getElementById('tab-limit-close');
+    const tabLimitUpgradeBtn = document.getElementById('tab-limit-upgrade-btn');
+    const tabLimitCloseTabBtn = document.getElementById('tab-limit-close-tab-btn');
 
     // Theme toggle elements
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
@@ -1124,6 +1131,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
+    // Tab Limit (Free vs Pro)
+    // =========================================================================
+
+    function canCreateNewTab() {
+        const isPro = currentUser && currentUser.subscriptionTier === 'pro';
+        if (isPro) return true;
+        return tabs.length < FREE_TAB_LIMIT;
+    }
+
+    function showTabLimitModal() {
+        tabLimitModal.hidden = false;
+    }
+
+    function hideTabLimitModal() {
+        tabLimitModal.hidden = true;
+    }
+
+    // Tab limit modal event handlers
+    tabLimitClose.addEventListener('click', hideTabLimitModal);
+
+    tabLimitModal.addEventListener('click', (e) => {
+        if (e.target === tabLimitModal) hideTabLimitModal();
+    });
+
+    tabLimitUpgradeBtn.addEventListener('click', () => {
+        hideTabLimitModal();
+        // Show the upgrade modal
+        upgradeModal.hidden = false;
+    });
+
+    tabLimitCloseTabBtn.addEventListener('click', () => {
+        hideTabLimitModal();
+        // Focus on the tab bar so user can close a tab
+        // Highlight the tabs briefly to indicate they should close one
+        tabBar.classList.add('tab-highlight');
+        setTimeout(() => tabBar.classList.remove('tab-highlight'), 2000);
+    });
+
+    // =========================================================================
     // Tab Persistence (localStorage)
     // =========================================================================
 
@@ -1192,6 +1238,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // New tab button handler
     tabNewBtn.addEventListener('click', () => {
+        // Check if user can create a new tab (free limit check)
+        if (!canCreateNewTab()) {
+            showTabLimitModal();
+            return;
+        }
         createTab();
         document.getElementById('description').value = '';
         document.getElementById('description').focus();
@@ -1227,6 +1278,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const shouldCreateNewTab = !tab || Object.keys(tab.categories).length > 0 || tab.error;
 
         if (shouldCreateNewTab) {
+            // Check if user can create a new tab (free limit check)
+            if (!canCreateNewTab()) {
+                showTabLimitModal();
+                return;
+            }
             tab = createTab(description, tldStyle);
         } else {
             // Reuse empty tab

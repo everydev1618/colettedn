@@ -2126,6 +2126,93 @@ body {
 }
 
 /* ==========================================================================
+   Tab Limit Modal
+   ========================================================================== */
+
+.tab-limit-modal {
+    max-width: 400px;
+}
+
+.tab-limit-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.tab-limit-upgrade-btn,
+.tab-limit-close-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.tab-limit-upgrade-btn {
+    background: var(--gold);
+    border-color: var(--gold);
+}
+
+.tab-limit-upgrade-btn .btn-icon {
+    color: #0a0a0a;
+}
+
+.tab-limit-upgrade-btn .btn-label {
+    color: #0a0a0a;
+}
+
+.tab-limit-upgrade-btn .btn-desc {
+    color: rgba(10, 10, 10, 0.7);
+}
+
+.tab-limit-upgrade-btn:hover {
+    background: var(--cream);
+    border-color: var(--cream);
+}
+
+.tab-limit-close-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--cream-dim);
+}
+
+.tab-limit-upgrade-btn .btn-icon,
+.tab-limit-close-tab-btn .btn-icon {
+    font-size: 1.25rem;
+    width: 1.5rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.tab-limit-close-tab-btn .btn-icon {
+    color: var(--cream-dim);
+}
+
+.btn-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.btn-label {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--cream);
+}
+
+.btn-desc {
+    font-size: 0.8rem;
+    color: var(--cream-dim);
+}
+
+/* ==========================================================================
    Owned Domain Modal
    ========================================================================== */
 
@@ -3834,6 +3921,26 @@ body {
     border-color: var(--gold-dim);
     color: var(--cream);
     background: rgba(255, 255, 255, 0.03);
+}
+
+/* Tab highlight animation - shown when user needs to close a tab */
+.tab-bar.tab-highlight .tab {
+    animation: tab-pulse 0.6s ease-in-out 2;
+}
+
+.tab-bar.tab-highlight .tab-close {
+    color: var(--gold);
+    animation: tab-close-pulse 0.6s ease-in-out 2;
+}
+
+@keyframes tab-pulse {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(212, 175, 55, 0.1); }
+}
+
+@keyframes tab-close-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
 }
 
 /* Light mode adjustments */

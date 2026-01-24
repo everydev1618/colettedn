@@ -206,3 +206,82 @@ func TestLookupMany(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckAvailability(t *testing.T) {
+	client := New()
+	ctx := context.Background()
+
+	// Test with a registered domain - should NOT be available
+	result, err := client.CheckAvailability(ctx, "google.com")
+	if err != nil {
+		t.Fatalf("CheckAvailability failed: %v", err)
+	}
+	if result.Available {
+		t.Error("Expected google.com to NOT be available")
+	}
+	t.Logf("google.com available=%v", result.Available)
+
+	// Test with a domain that almost certainly doesn't exist - should be available
+	result, err = client.CheckAvailability(ctx, "thisdomain-definitely-does-not-exist-xyz123.com")
+	if err != nil {
+		t.Fatalf("CheckAvailability failed: %v", err)
+	}
+	if !result.Available {
+		t.Error("Expected nonexistent domain to be available")
+	}
+	t.Logf("nonexistent domain available=%v", result.Available)
+}
+
+func TestCheckAvailabilityMany(t *testing.T) {
+	client := New()
+	ctx := context.Background()
+
+	domains := []string{
+		"google.com",                                      // taken
+		"thisdomain-definitely-does-not-exist-xyz123.com", // available
+	}
+
+	results := client.CheckAvailabilityMany(ctx, domains)
+
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results, got %d", len(results))
+	}
+
+	// google.com should be taken
+	if r, ok := results["google.com"]; ok {
+		if r.Available {
+			t.Error("Expected google.com to NOT be available")
+		}
+	} else {
+		t.Error("Missing result for google.com")
+	}
+
+	// nonexistent domain should be available
+	if r, ok := results["thisdomain-definitely-does-not-exist-xyz123.com"]; ok {
+		if !r.Available {
+			t.Error("Expected nonexistent domain to be available")
+		}
+	} else {
+		t.Error("Missing result for nonexistent domain")
+	}
+}
+
+func TestIsTLDSupported(t *testing.T) {
+	client := New()
+
+	// Supported TLDs
+	supported := []string{"com", "net", "org", "io", "ai", "co", "app", "dev"}
+	for _, tld := range supported {
+		if !client.IsTLDSupported(tld) {
+			t.Errorf("Expected %s to be supported", tld)
+		}
+	}
+
+	// Unsupported TLDs
+	unsupported := []string{"zz", "fake", "notreal"}
+	for _, tld := range unsupported {
+		if client.IsTLDSupported(tld) {
+			t.Errorf("Expected %s to NOT be supported", tld)
+		}
+	}
+}

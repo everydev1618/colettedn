@@ -108,6 +108,33 @@
         </div>
     </div>
 
+    <!-- Tab Limit Modal -->
+    <div id="tab-limit-modal" class="modal-overlay" hidden>
+        <div class="modal-content tab-limit-modal">
+            <button class="modal-close" id="tab-limit-close">&times;</button>
+            <div class="modal-icon">✦</div>
+            <h2 class="modal-title">You're on a roll!</h2>
+            <p class="modal-text">Free accounts can have up to 3 tabs open at once. Upgrade to Pro for unlimited tabs and searches.</p>
+
+            <div class="tab-limit-options">
+                <button type="button" class="tab-limit-upgrade-btn" id="tab-limit-upgrade-btn">
+                    <span class="btn-icon">✦</span>
+                    <span class="btn-content">
+                        <span class="btn-label">Upgrade to Pro</span>
+                        <span class="btn-desc">Unlimited tabs & searches — $29/year</span>
+                    </span>
+                </button>
+                <button type="button" class="tab-limit-close-tab-btn" id="tab-limit-close-tab-btn">
+                    <span class="btn-icon">←</span>
+                    <span class="btn-content">
+                        <span class="btn-label">Close a tab instead</span>
+                        <span class="btn-desc">Keep using the free plan</span>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Owned Domain Modal -->
     <div id="owned-modal" class="modal-overlay" hidden>
         <div class="modal-content owned-modal">
@@ -173,6 +200,7 @@
                 <div class="search-options">
                     <button type="button" class="tld-toggle active" data-value="traditional">.com .co .net</button>
                     <button type="button" class="tld-toggle" data-value="creative">.io .ai .app .dev</button>
+                    <button type="button" class="tld-toggle" data-value="global">.co.uk .de .eu</button>
                     <input type="hidden" id="tld-style" value="traditional">
                 </div>
 

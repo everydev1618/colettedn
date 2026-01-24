@@ -11,7 +11,7 @@ Do not create resources in other regions.
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │   CloudFlare    │────▶│   API Gateway    │────▶│     Lambda      │
-│  (colettedn.com)│     │   (HTTP API)     │     │  (VPC-attached) │
+│  (colettedn.com)│     │   (HTTP API)     │     │                 │
 └─────────────────┘     └──────────────────┘     └────────┬────────┘
                                                           │
                         ┌──────────────────┐              │
@@ -19,16 +19,10 @@ Do not create resources in other regions.
                         │ (bypass timeout) │              │
                         └──────────────────┘              │
                                                           ▼
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│    DynamoDB     │◀────│  Private Subnet  │────▶│   NAT Gateway   │
-│ (colettedn-cache│     │   (Lambda)       │     │  (Static EIP)   │
-└─────────────────┘     └──────────────────┘     └────────┬────────┘
-                                                          │
-                                                          ▼
-                                                 ┌─────────────────┐
-                                                 │  External APIs  │
-                                                 │ - Anthropic     │
-                                                 │ - Namecheap     │
+┌─────────────────┐                              ┌─────────────────┐
+│    DynamoDB     │◀─────────────────────────────│  External APIs  │
+│ (colettedn-*)   │                              │ - Anthropic     │
+└─────────────────┘                              │ - RDAP (free)   │
                                                  └─────────────────┘
 ```
 
@@ -39,42 +33,43 @@ Do not create resources in other regions.
 - **Runtime**: `provided.al2023` (Go binary)
 - **Timeout**: 120 seconds (Function URL), 29 seconds (API Gateway)
 - **Memory**: 256 MB
-- **VPC**: Attached to private subnet for static outbound IP
 
-### VPC Configuration
-- **CIDR**: `10.0.0.0/16`
-- **Public Subnet**: `10.0.1.0/24` (NAT Gateway)
-- **Private Subnet**: `10.0.2.0/24` (Lambda)
-- **NAT Gateway EIP**: `100.52.14.203` (static IP for Namecheap whitelist)
-
-### DynamoDB
-- **Table**: `colettedn-cache`
-- **Billing**: Pay-per-request
-- **TTL**: Enabled on `ttl` attribute
-- **VPC Endpoint**: Gateway endpoint (free, bypasses NAT)
+### DynamoDB Tables
+| Table | Purpose |
+|-------|---------|
+| `colettedn-cache` | Domain availability cache (24h TTL) |
+| `colettedn-users` | User accounts |
+| `colettedn-tokens` | Auth tokens (magic links, sessions) |
+| `colettedn-favorites` | Saved domains |
+| `colettedn-history` | Search history |
+| `colettedn-owned` | Registered domains |
+| `colettedn-analytics` | Usage metrics |
 
 ### API Gateway
 - **Type**: HTTP API (v2)
 - **Custom Domain**: `colettedn.com`
 - **Certificate**: ACM (DNS validated)
 
+## Domain Availability Checking
+
+Domain availability is checked via **RDAP** (Registration Data Access Protocol):
+- Queries authoritative registries directly (Verisign for .com/.net, etc.)
+- Free, no API key required
+- More reliable than registrar APIs
+- 404 response = domain available, 200 response = domain taken
+
+Supported TLDs: `.com`, `.net`, `.org`, `.io`, `.ai`, `.co`, `.app`, `.dev`, `.me`, `.xyz`, `.tech`
+
 ## Environment Variables
 
 | Variable | Description | Source |
 |----------|-------------|--------|
 | `ANTHROPIC_API_KEY` | Claude API key | SAM parameter |
-| `NAMECHEAP_API_USER` | Namecheap API username | SAM parameter |
-| `NAMECHEAP_API_KEY` | Namecheap API key | SAM parameter |
-| `NAMECHEAP_USERNAME` | Namecheap account username | SAM parameter |
-| `NAMECHEAP_CLIENT_IP` | Static IP for API auth | `!GetAtt NatEIP.PublicIp` |
-| `NAMECHEAP_SANDBOX` | Use sandbox API | `false` |
-
-## Namecheap API Setup
-
-1. The Lambda uses NAT Gateway for outbound traffic
-2. NAT Gateway has static EIP: `100.52.14.203`
-3. This IP **must be whitelisted** in Namecheap API Access settings
-4. API Access: https://ap.www.namecheap.com/settings/tools/apiaccess/
+| `APP_URL` | Application URL | Derived from DomainName |
+| `FROM_EMAIL` | SES sender email | Derived from DomainName |
+| `STRIPE_SECRET_KEY` | Stripe API key | SAM parameter |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing | SAM parameter |
+| `STRIPE_PRICE_ID` | Subscription price ID | SAM parameter |
 
 ## Deployment
 
@@ -88,9 +83,9 @@ make deploy
 
 ### SAM Parameters Required
 - `AnthropicApiKey`
-- `NamecheapApiUser`
-- `NamecheapApiKey`
-- `NamecheapUsername`
+- `StripeSecretKey`
+- `StripeWebhookSecret`
+- `StripePriceId`
 
 ## Outputs
 
@@ -100,4 +95,3 @@ make deploy
 | `FunctionUrl` | Lambda Function URL (no timeout) |
 | `CustomDomainUrl` | https://colettedn.com/ |
 | `ApiGatewayDomainTarget` | CNAME target for CloudFlare |
-| `NamecheapWhitelistIP` | IP to whitelist in Namecheap |
