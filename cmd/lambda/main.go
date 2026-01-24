@@ -47,13 +47,13 @@ func init() {
 	}
 
 	// Initialize favorites handler
-	favHandler, err := handler.NewFavoritesHandler()
+	favHandler, err := handler.NewFavoritesHandler(userService)
 	if err != nil {
 		log.Printf("[WARN] Failed to initialize favorites handler: %v", err)
 	}
 
 	// Initialize history handler
-	histHandler, err := handler.NewHistoryHandler()
+	histHandler, err := handler.NewHistoryHandler(userService)
 	if err != nil {
 		log.Printf("[WARN] Failed to initialize history handler: %v", err)
 	}
@@ -80,6 +80,7 @@ func init() {
 	mux.HandleFunc("GET /api/stats", h.Stats)
 	mux.HandleFunc("POST /api/track/affiliate", h.TrackAffiliateClick)
 	mux.HandleFunc("POST /api/track/pageview", h.TrackPageView)
+	mux.HandleFunc("POST /api/generate-tab-title", h.GenerateTabTitle)
 
 	// Auth routes
 	if authHandler != nil {

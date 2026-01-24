@@ -9,13 +9,15 @@ import (
 
 	"github.com/everydev1618/colettedn/internal/auth"
 	"github.com/everydev1618/colettedn/internal/favorites"
+	"github.com/everydev1618/colettedn/internal/user"
 )
 
 type FavoritesHandler struct {
-	favService favorites.FavoritesService
+	favService  favorites.FavoritesService
+	userService user.UserService
 }
 
-func NewFavoritesHandler() (*FavoritesHandler, error) {
+func NewFavoritesHandler(userService user.UserService) (*FavoritesHandler, error) {
 	var favService favorites.FavoritesService
 
 	// Use DynamoDB in Lambda, in-memory for local dev
@@ -32,7 +34,8 @@ func NewFavoritesHandler() (*FavoritesHandler, error) {
 	}
 
 	return &FavoritesHandler{
-		favService: favService,
+		favService:  favService,
+		userService: userService,
 	}, nil
 }
 
@@ -52,10 +55,19 @@ type ListFavoritesResponse struct {
 }
 
 func (h *FavoritesHandler) Add(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
+	authUser := auth.GetUser(r.Context())
+	if authUser == nil {
 		writeJSON(w, http.StatusUnauthorized, FavoriteResponse{Error: "Unauthorized"})
 		return
+	}
+
+	// PRO only feature
+	if h.userService != nil {
+		fullUser, err := h.userService.GetByID(r.Context(), authUser.UserID)
+		if err != nil || fullUser.SubscriptionTier != user.TierPro {
+			writeJSON(w, http.StatusForbidden, FavoriteResponse{Error: "Pro subscription required"})
+			return
+		}
 	}
 
 	var req AddFavoriteRequest
@@ -70,7 +82,7 @@ func (h *FavoritesHandler) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fav, err := h.favService.Add(r.Context(), user.UserID, domain)
+	fav, err := h.favService.Add(r.Context(), authUser.UserID, domain)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, FavoriteResponse{Error: "Failed to add favorite"})
 		return
@@ -80,10 +92,19 @@ func (h *FavoritesHandler) Add(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FavoritesHandler) Remove(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
+	authUser := auth.GetUser(r.Context())
+	if authUser == nil {
 		writeJSON(w, http.StatusUnauthorized, FavoriteResponse{Error: "Unauthorized"})
 		return
+	}
+
+	// PRO only feature
+	if h.userService != nil {
+		fullUser, err := h.userService.GetByID(r.Context(), authUser.UserID)
+		if err != nil || fullUser.SubscriptionTier != user.TierPro {
+			writeJSON(w, http.StatusForbidden, FavoriteResponse{Error: "Pro subscription required"})
+			return
+		}
 	}
 
 	// Extract domain from path: /api/favorites/{domain}
@@ -100,7 +121,7 @@ func (h *FavoritesHandler) Remove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.favService.Remove(r.Context(), user.UserID, domain); err != nil {
+	if err := h.favService.Remove(r.Context(), authUser.UserID, domain); err != nil {
 		writeJSON(w, http.StatusInternalServerError, FavoriteResponse{Error: "Failed to remove favorite"})
 		return
 	}
@@ -109,13 +130,22 @@ func (h *FavoritesHandler) Remove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FavoritesHandler) List(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
+	authUser := auth.GetUser(r.Context())
+	if authUser == nil {
 		writeJSON(w, http.StatusUnauthorized, ListFavoritesResponse{Error: "Unauthorized"})
 		return
 	}
 
-	favs, err := h.favService.List(r.Context(), user.UserID)
+	// PRO only feature
+	if h.userService != nil {
+		fullUser, err := h.userService.GetByID(r.Context(), authUser.UserID)
+		if err != nil || fullUser.SubscriptionTier != user.TierPro {
+			writeJSON(w, http.StatusForbidden, ListFavoritesResponse{Error: "Pro subscription required"})
+			return
+		}
+	}
+
+	favs, err := h.favService.List(r.Context(), authUser.UserID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ListFavoritesResponse{Error: "Failed to get favorites"})
 		return

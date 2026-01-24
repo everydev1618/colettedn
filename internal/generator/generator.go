@@ -289,6 +289,86 @@ Return ONLY valid JSON in this exact format:
 }`, description, strings.Join(tlds, ", "), exclusionNote)
 }
 
+// GenerateTabTitle generates a short, catchy title (2-4 words) for a search tab
+func (g *Generator) GenerateTabTitle(ctx context.Context, searchPhrase string) (string, error) {
+	if g.apiKey == "" {
+		return "", fmt.Errorf("ANTHROPIC_API_KEY not set")
+	}
+
+	prompt := fmt.Sprintf(`Given this domain search phrase: "%s"
+
+Generate a SHORT, catchy title (2-4 words max) that summarizes what the user is looking for. This will be used as a browser tab title.
+
+Rules:
+- Maximum 4 words, ideally 2-3
+- Be descriptive but concise
+- Capture the essence/industry/purpose
+- Use title case
+- No punctuation
+
+Examples:
+- "AI writing assistant for students" → "Student AI Writer"
+- "vintage clothing marketplace" → "Vintage Fashion"
+- "dog walking app for busy professionals" → "Dog Walking App"
+- "personal finance tracker" → "Finance Tracker"
+- "tonycto.com" → "Tony CTO"
+- "recipe sharing platform for home cooks" → "Home Cooking"
+
+Return ONLY the title, nothing else.`, searchPhrase)
+
+	reqBody := claudeRequest{
+		Model:     "claude-haiku-4-5-20251001",
+		MaxTokens: 50,
+		Messages: []message{
+			{Role: "user", Content: prompt},
+		},
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", g.apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("API request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var claudeResp claudeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&claudeResp); err != nil {
+		return "", fmt.Errorf("decode response: %w", err)
+	}
+
+	if claudeResp.Error != nil {
+		return "", fmt.Errorf("API error: %s", claudeResp.Error.Message)
+	}
+
+	if len(claudeResp.Content) == 0 {
+		return "", fmt.Errorf("empty response from API")
+	}
+
+	// Clean up the title
+	title := strings.TrimSpace(claudeResp.Content[0].Text)
+	// Remove quotes if present
+	title = strings.Trim(title, "\"'")
+	// Truncate if too long (safety)
+	if len(title) > 30 {
+		title = title[:30]
+	}
+
+	return title, nil
+}
+
 func parseCategorizedDomains(text string) map[string][]string {
 	// Find JSON object in response
 	start := strings.Index(text, "{")

@@ -888,6 +888,38 @@ func cacheComSiteStatus(domain string, status ComSiteStatus) {
 	comSiteCacheMu.Unlock()
 }
 
+// GenerateTabTitle generates a short title for a search tab
+type TabTitleRequest struct {
+	SearchPhrase string `json:"searchPhrase"`
+}
+
+type TabTitleResponse struct {
+	Title string `json:"title"`
+	Error string `json:"error,omitempty"`
+}
+
+func (h *Handler) GenerateTabTitle(w http.ResponseWriter, r *http.Request) {
+	var req TabTitleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, TabTitleResponse{Error: "Invalid request body"})
+		return
+	}
+
+	if req.SearchPhrase == "" {
+		writeJSON(w, http.StatusBadRequest, TabTitleResponse{Error: "Search phrase is required"})
+		return
+	}
+
+	title, err := h.gen.GenerateTabTitle(r.Context(), req.SearchPhrase)
+	if err != nil {
+		log.Printf("[TAB_TITLE_ERROR] Failed to generate title: %v", err)
+		writeJSON(w, http.StatusInternalServerError, TabTitleResponse{Error: "Failed to generate title"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, TabTitleResponse{Title: title})
+}
+
 func checkSiteStatus(ctx context.Context, domain string) ComSiteStatus {
 	// Create HTTP client with timeout
 	client := &http.Client{

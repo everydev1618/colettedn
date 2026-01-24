@@ -10,13 +10,15 @@ import (
 
 	"github.com/everydev1618/colettedn/internal/auth"
 	"github.com/everydev1618/colettedn/internal/history"
+	"github.com/everydev1618/colettedn/internal/user"
 )
 
 type HistoryHandler struct {
 	histService history.HistoryService
+	userService user.UserService
 }
 
-func NewHistoryHandler() (*HistoryHandler, error) {
+func NewHistoryHandler(userService user.UserService) (*HistoryHandler, error) {
 	var histService history.HistoryService
 
 	// Use DynamoDB in Lambda, in-memory for local dev
@@ -34,6 +36,7 @@ func NewHistoryHandler() (*HistoryHandler, error) {
 
 	return &HistoryHandler{
 		histService: histService,
+		userService: userService,
 	}, nil
 }
 
@@ -55,10 +58,19 @@ type ListHistoryResponse struct {
 }
 
 func (h *HistoryHandler) Save(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
+	authUser := auth.GetUser(r.Context())
+	if authUser == nil {
 		writeJSON(w, http.StatusUnauthorized, HistoryResponse{Error: "Unauthorized"})
 		return
+	}
+
+	// PRO only feature
+	if h.userService != nil {
+		fullUser, err := h.userService.GetByID(r.Context(), authUser.UserID)
+		if err != nil || fullUser.SubscriptionTier != user.TierPro {
+			writeJSON(w, http.StatusForbidden, HistoryResponse{Error: "Pro subscription required"})
+			return
+		}
 	}
 
 	var req SaveHistoryRequest
@@ -78,7 +90,7 @@ func (h *HistoryHandler) Save(w http.ResponseWriter, r *http.Request) {
 		tldStyle = "traditional"
 	}
 
-	hist, err := h.histService.Save(r.Context(), user.UserID, description, tldStyle, req.Categories)
+	hist, err := h.histService.Save(r.Context(), authUser.UserID, description, tldStyle, req.Categories)
 	if err != nil {
 		log.Printf("Failed to save history: %v", err)
 		writeJSON(w, http.StatusInternalServerError, HistoryResponse{Error: "Failed to save history"})
@@ -89,10 +101,19 @@ func (h *HistoryHandler) Save(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HistoryHandler) List(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
+	authUser := auth.GetUser(r.Context())
+	if authUser == nil {
 		writeJSON(w, http.StatusUnauthorized, ListHistoryResponse{Error: "Unauthorized"})
 		return
+	}
+
+	// PRO only feature
+	if h.userService != nil {
+		fullUser, err := h.userService.GetByID(r.Context(), authUser.UserID)
+		if err != nil || fullUser.SubscriptionTier != user.TierPro {
+			writeJSON(w, http.StatusForbidden, ListHistoryResponse{Error: "Pro subscription required"})
+			return
+		}
 	}
 
 	// Get optional limit from query params
@@ -103,7 +124,7 @@ func (h *HistoryHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	histories, err := h.histService.List(r.Context(), user.UserID, limit)
+	histories, err := h.histService.List(r.Context(), authUser.UserID, limit)
 	if err != nil {
 		log.Printf("Failed to list history: %v", err)
 		writeJSON(w, http.StatusInternalServerError, ListHistoryResponse{Error: "Failed to get history"})
@@ -118,10 +139,19 @@ func (h *HistoryHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HistoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUser(r.Context())
-	if user == nil {
+	authUser := auth.GetUser(r.Context())
+	if authUser == nil {
 		writeJSON(w, http.StatusUnauthorized, HistoryResponse{Error: "Unauthorized"})
 		return
+	}
+
+	// PRO only feature
+	if h.userService != nil {
+		fullUser, err := h.userService.GetByID(r.Context(), authUser.UserID)
+		if err != nil || fullUser.SubscriptionTier != user.TierPro {
+			writeJSON(w, http.StatusForbidden, HistoryResponse{Error: "Pro subscription required"})
+			return
+		}
 	}
 
 	// Extract searchedAt from path: /api/history/{searchedAt}
@@ -139,7 +169,7 @@ func (h *HistoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.histService.Delete(r.Context(), user.UserID, searchedAt); err != nil {
+	if err := h.histService.Delete(r.Context(), authUser.UserID, searchedAt); err != nil {
 		log.Printf("Failed to delete history: %v", err)
 		writeJSON(w, http.StatusInternalServerError, HistoryResponse{Error: "Failed to delete history"})
 		return

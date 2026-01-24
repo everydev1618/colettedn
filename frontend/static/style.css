@@ -918,41 +918,49 @@ body {
     color: var(--cream-dim);
 }
 
-/* Domain Quality Score */
-.domain-score {
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    font-weight: 600;
-    padding: 0.1rem 0.35rem;
+/* Domain Quality Score Bar */
+.domain-score-bar {
+    width: 60px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
     border-radius: 3px;
+    overflow: hidden;
     cursor: help;
+    flex-shrink: 0;
 }
 
-.domain-score.score-great {
-    background: rgba(107, 158, 103, 0.15);
-    color: var(--success);
+.domain-score-bar .score-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
 }
 
-.domain-score.score-good {
-    background: rgba(196, 168, 85, 0.15);
-    color: var(--gold);
+.domain-score-bar.score-great .score-fill {
+    background: var(--success);
 }
 
-.domain-score.score-fair {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--cream-dim);
+.domain-score-bar.score-good .score-fill {
+    background: var(--gold);
 }
 
-[data-theme="light"] .domain-score.score-great {
-    background: rgba(45, 122, 45, 0.12);
+.domain-score-bar.score-fair .score-fill {
+    background: var(--cream-dim);
 }
 
-[data-theme="light"] .domain-score.score-good {
-    background: rgba(154, 125, 46, 0.12);
+[data-theme="light"] .domain-score-bar {
+    background: rgba(0, 0, 0, 0.08);
 }
 
-[data-theme="light"] .domain-score.score-fair {
-    background: rgba(0, 0, 0, 0.06);
+[data-theme="light"] .domain-score-bar.score-great .score-fill {
+    background: #2d7a2d;
+}
+
+[data-theme="light"] .domain-score-bar.score-good .score-fill {
+    background: #9a7d2e;
+}
+
+[data-theme="light"] .domain-score-bar.score-fair .score-fill {
+    background: rgba(0, 0, 0, 0.3);
 }
 
 .domain-price {
@@ -1370,6 +1378,9 @@ body {
    ========================================================================== */
 
 .user-menu {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     flex-shrink: 0;
     position: relative;
     margin-left: auto;
@@ -2180,6 +2191,8 @@ body {
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
 }
 
 .owned-badge {
@@ -3416,7 +3429,15 @@ body {
 }
 
 .registrar-card-other.expanded {
+    flex-direction: column;
+    align-items: stretch;
     border-color: rgba(255, 255, 255, 0.15);
+}
+
+.registrar-card-other.expanded .other-collapsed {
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .other-input-row {
@@ -3837,5 +3858,92 @@ body {
         width: 28px;
         height: 28px;
         font-size: 1.1rem;
+    }
+}
+
+/* Search Phrase Header */
+.search-phrase-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.search-phrase-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.search-phrase-text {
+    color: var(--text-secondary);
+    font-style: italic;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-phrase-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.search-phrase-copy:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.search-phrase-copy svg {
+    opacity: 0.7;
+}
+
+.search-phrase-copy:hover svg {
+    opacity: 1;
+}
+
+[data-theme="light"] .search-phrase-header {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .search-phrase-copy {
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .search-phrase-copy:hover {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 600px) {
+    .search-phrase-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .search-phrase-text {
+        order: 3;
+        width: 100%;
+        flex: none;
+    }
+
+    .search-phrase-copy {
+        margin-left: auto;
     }
 }

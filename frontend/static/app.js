@@ -559,6 +559,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Favorites view handlers
     async function showFavoritesView() {
+        // Check if user is logged in
+        if (!currentUser) {
+            openLoginModal();
+            return;
+        }
+        // PRO only feature
+        if (currentUser.subscriptionTier !== 'pro') {
+            openUpgradeModal();
+            return;
+        }
         welcomeContent.hidden = true;
         resultsEl.hidden = true;
         historyView.hidden = true;
@@ -584,6 +594,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // History view handlers
     async function showHistoryView() {
+        // Check if user is logged in
+        if (!currentUser) {
+            openLoginModal();
+            return;
+        }
+        // PRO only feature
+        if (currentUser.subscriptionTier !== 'pro') {
+            openUpgradeModal();
+            return;
+        }
         welcomeContent.hidden = true;
         resultsEl.hidden = true;
         favoritesView.hidden = true;
@@ -732,9 +752,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
 
-    // Save search to history
+    // Save search to history (PRO only)
     async function saveSearchHistory(description, tldStyle, categoriesData) {
         if (!authToken) return;
+        // PRO only feature
+        if (!currentUser || currentUser.subscriptionTier !== 'pro') return;
 
         try {
             await apiFetch('/api/history', {
@@ -747,6 +769,37 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } catch (err) {
             console.error('Failed to save history:', err);
+        }
+    }
+
+    // Generate a title for a tab using AI
+    async function generateTabTitle(tabId, searchPhrase) {
+        try {
+            const response = await fetch('/api/generate-tab-title', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ searchPhrase })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.title) {
+                    // Find the tab and update its title
+                    const tab = tabs.find(t => t.id === tabId);
+                    if (tab) {
+                        tab.title = data.title;
+                        renderTabBar();
+                        // Re-render results if this is the active tab (to show the title)
+                        if (activeTabId === tabId) {
+                            renderResultsForTab(tab);
+                        }
+                        saveTabsToStorage();
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to generate tab title:', err);
+            // Silent failure - tab will just use description as title
         }
     }
 
@@ -832,6 +885,11 @@ document.addEventListener('DOMContentLoaded', () => {
             openLoginModal();
             return;
         }
+        // PRO only feature
+        if (!currentUser || currentUser.subscriptionTier !== 'pro') {
+            openUpgradeModal();
+            return;
+        }
 
         domain = domain.toLowerCase();
         const isFavorite = userFavorites.has(domain);
@@ -913,6 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tab = {
             id: `tab-${tabCounter}`,
             description: description,
+            title: '', // AI-generated title
             tldStyle: tldStyle,
             categories: {},
             isLoading: false,
@@ -1023,9 +1082,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabList.innerHTML = tabs.map(tab => {
             const isActive = tab.id === activeTabId;
-            const title = tab.description
-                ? (tab.description.length > 20 ? tab.description.substring(0, 20) + '...' : tab.description)
-                : 'New Search';
+            // Use AI-generated title if available, otherwise fall back to description
+            let title;
+            if (tab.title) {
+                title = tab.title.length > 20 ? tab.title.substring(0, 20) + '...' : tab.title;
+            } else if (tab.description) {
+                title = tab.description.length > 20 ? tab.description.substring(0, 20) + '...' : tab.description;
+            } else {
+                title = 'New Search';
+            }
 
             return `
                 <button class="tab${isActive ? ' active' : ''}" data-tab-id="${tab.id}">
@@ -1259,6 +1324,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Save to history if logged in
             saveSearchHistory(description, tldStyle, tab.categories);
 
+            // Generate a title for the tab (async, don't block)
+            generateTabTitle(tab.id, description);
+
         } catch (err) {
             tab.isLoading = false;
             tab.error = 'Failed to generate domains. Please try again.';
@@ -1302,6 +1370,21 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `<span class="rounds-badge">${rounds} rounds · ${totalDomains} found</span>`
             : '';
 
+        // Search phrase header with copy-to-search functionality
+        const searchPhraseHtml = tab.description ? `
+            <div class="search-phrase-header">
+                <span class="search-phrase-label">Search:</span>
+                <span class="search-phrase-text">"${escapeHtml(tab.description)}"</span>
+                <button class="search-phrase-copy" title="Copy to search field">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    Edit search
+                </button>
+            </div>
+        ` : '';
+
         // Usage banner removed - let users enjoy the free tier without constant reminders
 
         const sectionsHtml = categoryOrder
@@ -1329,9 +1412,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Results CTA removed - let users enjoy results without being pushed to upgrade
 
-        resultsEl.innerHTML = sectionsHtml;
+        resultsEl.innerHTML = searchPhraseHtml + sectionsHtml;
         resultsEl.hidden = false;
         welcomeContent.hidden = true;
+
+        // Add click handler for "Edit search" button
+        const copyBtn = resultsEl.querySelector('.search-phrase-copy');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const descInput = document.getElementById('description');
+                if (descInput && tab.description) {
+                    descInput.value = tab.description;
+                    descInput.focus();
+                    descInput.select();
+                    // Scroll to top if needed
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+        }
 
         // Add refresh button handlers
         resultsEl.querySelectorAll('.cache-refresh').forEach(btn => {
@@ -1433,10 +1531,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         metaHtml = `<span class="domain-status ${statusClass}">${statusText}</span>`;
 
-        // Add score indicator if available
+        // Build score bar HTML if score available
+        let scoreBarHtml = '';
         if (domain.score) {
             const scoreClass = domain.score >= 80 ? 'score-great' : domain.score >= 65 ? 'score-good' : 'score-fair';
-            metaHtml += `<span class="domain-score ${scoreClass}" title="Quality score: ${domain.score}/100">${domain.score}</span>`;
+            scoreBarHtml = `
+                <div class="domain-score-bar ${scoreClass}" title="Quality score: ${domain.score}/100">
+                    <div class="score-fill" style="width: ${domain.score}%"></div>
+                </div>`;
         }
 
         if (domain.isPremium) {
@@ -1496,6 +1598,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${ownedBadgeHtml}
                     ${comCheckHtml}
                 </div>
+                ${scoreBarHtml}
                 <div class="domain-row">
                     <div class="domain-meta">${metaHtml}</div>
                     <div class="domain-actions">
