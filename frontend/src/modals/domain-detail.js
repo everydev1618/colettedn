@@ -36,16 +36,33 @@ export function openDomainDetailModal(domain) {
 
 async function fetchRdapInfo(domain) {
     try {
-        const response = await fetch(`/api/rdap?domain=${encodeURIComponent(domain)}`);
+        const response = await fetch('/api/rdap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domains: [domain] })
+        });
         const data = await response.json();
 
         // Only render if we're still showing this domain
         if (currentDomain !== domain) return;
 
-        // Cache the result
-        rdapInfoCache.set(domain.toLowerCase(), data);
+        if (data.error) {
+            throw new Error(data.error);
+        }
 
-        renderDomainDetail(data);
+        // Extract the domain info from results map
+        const domainInfo = data.results && data.results[domain];
+        if (!domainInfo) {
+            // Domain not found in RDAP - likely available
+            const availableInfo = { available: true };
+            rdapInfoCache.set(domain.toLowerCase(), availableInfo);
+            renderDomainDetail(availableInfo);
+            return;
+        }
+
+        // Cache the result
+        rdapInfoCache.set(domain.toLowerCase(), domainInfo);
+        renderDomainDetail(domainInfo);
     } catch (err) {
         console.error('Failed to fetch RDAP info:', err);
         dom.domainDetailContent.innerHTML = `
