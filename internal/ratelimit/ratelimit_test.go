@@ -125,8 +125,8 @@ func TestLimiterDefaultConfig(t *testing.T) {
 	if l.perMinute != 5 {
 		t.Errorf("expected default perMinute=5, got %d", l.perMinute)
 	}
-	if l.dailyLimit != 30 {
-		t.Errorf("expected default dailyLimit=30, got %d", l.dailyLimit)
+	if l.dailyLimit != 3 {
+		t.Errorf("expected default dailyLimit=3, got %d", l.dailyLimit)
 	}
 }
 

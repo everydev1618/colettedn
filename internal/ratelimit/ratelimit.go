@@ -51,7 +51,7 @@ func New(cfg Config) *Limiter {
 		cfg.PerMinute = 5
 	}
 	if cfg.DailyLimit == 0 {
-		cfg.DailyLimit = 30
+		cfg.DailyLimit = 3
 	}
 
 	l := &Limiter{

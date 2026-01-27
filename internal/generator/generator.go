@@ -55,7 +55,7 @@ func (g *Generator) GenerateCategorizedWithExclusions(ctx context.Context, descr
 	prompt := buildCategorizedPromptWithExclusions(description, tlds, takenDomains)
 
 	reqBody := claudeRequest{
-		Model:     "claude-haiku-4-5-20251001",
+		Model:     "claude-sonnet-4-20250514",
 		MaxTokens: 4096,
 		Messages: []message{
 			{Role: "user", Content: prompt},
@@ -116,7 +116,7 @@ func (g *Generator) GenerateFromDomainIdeaWithExclusions(ctx context.Context, do
 	prompt := buildDomainExplorationPrompt(domainIdea, tlds, takenDomains)
 
 	reqBody := claudeRequest{
-		Model:     "claude-haiku-4-5-20251001",
+		Model:     "claude-sonnet-4-20250514",
 		MaxTokens: 4096,
 		Messages: []message{
 			{Role: "user", Content: prompt},

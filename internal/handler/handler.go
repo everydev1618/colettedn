@@ -41,7 +41,7 @@ func New(userService user.UserService) *Handler {
 
 	// Initialize rate limiter (configurable via env vars)
 	perMinute := 5
-	dailyLimit := 30
+	dailyLimit := 3
 	if v := os.Getenv("RATE_LIMIT_PER_MINUTE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			perMinute = n
