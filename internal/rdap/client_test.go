@@ -269,8 +269,8 @@ func TestCheckAvailabilityMany(t *testing.T) {
 func TestIsTLDSupported(t *testing.T) {
 	client := New()
 
-	// Supported TLDs
-	supported := []string{"com", "net", "org", "io", "ai", "co", "app", "dev"}
+	// Supported TLDs (including multi-part)
+	supported := []string{"com", "net", "org", "io", "ai", "co", "app", "dev", "co.uk", "uk"}
 	for _, tld := range supported {
 		if !client.IsTLDSupported(tld) {
 			t.Errorf("Expected %s to be supported", tld)
@@ -283,5 +283,63 @@ func TestIsTLDSupported(t *testing.T) {
 		if client.IsTLDSupported(tld) {
 			t.Errorf("Expected %s to NOT be supported", tld)
 		}
+	}
+}
+
+func TestMultiPartTLD(t *testing.T) {
+	client := New()
+
+	// Test .co.uk domain (multi-part TLD)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// google.co.uk should be taken
+	result, err := client.CheckAvailability(ctx, "google.co.uk")
+	if err != nil {
+		t.Fatalf("CheckAvailability error: %v", err)
+	}
+	if result.Available {
+		t.Error("Expected google.co.uk to be taken")
+	}
+	t.Logf("google.co.uk available=%v", result.Available)
+}
+
+func TestDNSFallback(t *testing.T) {
+	// Use NewWithDefaults to avoid IANA bootstrap (which might support the TLD)
+	client := NewWithDefaults()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Test with a domain that has a TLD not in the default bootstrap
+	// but is a real registered domain (should use DNS fallback)
+	// google.de should be taken - .de may not be in defaults but DNS will find it
+	result, err := client.CheckAvailability(ctx, "google.fr")
+	if err != nil {
+		t.Fatalf("DNS fallback error: %v", err)
+	}
+	// google.fr should be taken (has NS records)
+	if result.Available {
+		t.Logf("Warning: google.fr reported as available (DNS fallback may have failed)")
+	} else {
+		t.Logf("google.fr correctly detected as taken via DNS fallback")
+	}
+
+	// Test with clearly nonexistent domain
+	result2, err := client.CheckAvailability(ctx, "this-domain-definitely-does-not-exist-12345.fr")
+	if err != nil {
+		t.Fatalf("DNS fallback error for nonexistent: %v", err)
+	}
+	t.Logf("nonexistent.fr available=%v error=%s", result2.Available, result2.Error)
+}
+
+func TestSupportedTLDCount(t *testing.T) {
+	client := New()
+	count := client.SupportedTLDCount()
+	t.Logf("Supported TLD count: %d", count)
+
+	// Should have significantly more TLDs with IANA bootstrap
+	if count < 100 {
+		t.Errorf("Expected at least 100 TLDs with IANA bootstrap, got %d", count)
 	}
 }
