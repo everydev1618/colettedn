@@ -14,6 +14,9 @@ export let tabCounter = 0;
 // Per-tab .com site checks
 export let comSiteChecks = new Map();
 
+// Per-tab TLD filter (null = "All")
+export let tldFilters = new Map(); // tabId -> selectedTld (null for All)
+
 // Registration state
 export let currentRegistrationDomain = null;
 export let userPreferredRegistrar = null;
@@ -63,6 +66,14 @@ export function incrementTabCounter() {
 
 export function setComSiteChecks(checks) {
     comSiteChecks = checks;
+}
+
+export function setTldFilter(tabId, tld) {
+    tldFilters.set(tabId, tld);
+}
+
+export function getTldFilter(tabId) {
+    return tldFilters.get(tabId) || null;
 }
 
 export function setCurrentRegistrationDomain(domain) {

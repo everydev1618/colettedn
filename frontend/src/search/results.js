@@ -1,5 +1,5 @@
 import { dom } from '../dom.js';
-import { activeTabId, authToken, currentUser, tabs, userFavorites, userOwnedDomains, userMonitoring, comSiteChecks } from '../state.js';
+import { activeTabId, authToken, currentUser, tabs, userFavorites, userOwnedDomains, userMonitoring, comSiteChecks, getTldFilter, setTldFilter } from '../state.js';
 import { apiFetch } from '../api.js';
 import { escapeHtml, formatExpiryBadge, formatRelativeTime, extractBaseName } from '../utils.js';
 import { renderDomainCard } from './domain-card.js';
@@ -22,14 +22,102 @@ export function showErrorForTab(tab) {
     dom.resultsEl.hidden = false;
 }
 
+// Extract TLD from domain name
+function getTld(domainName) {
+    const parts = domainName.split('.');
+    return parts.length > 1 ? '.' + parts[parts.length - 1] : '';
+}
+
+// Get TLD counts from all categories
+function getTldCounts(categories) {
+    const counts = new Map();
+    Object.values(categories).flat().forEach(d => {
+        const tld = getTld(d.name);
+        counts.set(tld, (counts.get(tld) || 0) + 1);
+    });
+    // Sort by count descending
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+// Render TLD filter bar
+function renderTldFilterBar(tab, tldCounts) {
+    const totalDomains = tldCounts.reduce((sum, [, count]) => sum + count, 0);
+    const currentFilter = getTldFilter(tab.id);
+    const maxVisibleTabs = 5;
+
+    if (tldCounts.length <= 1) {
+        return ''; // No filter needed for single TLD
+    }
+
+    const visibleTlds = tldCounts.slice(0, maxVisibleTabs);
+    const overflowTlds = tldCounts.slice(maxVisibleTabs);
+
+    const allTabClass = currentFilter === null ? 'tld-tab active' : 'tld-tab';
+    let tabsHtml = `<button class="${allTabClass}" data-tld="">All (${totalDomains})</button>`;
+
+    visibleTlds.forEach(([tld, count]) => {
+        const isActive = currentFilter === tld;
+        const tabClass = isActive ? 'tld-tab active' : 'tld-tab';
+        tabsHtml += `<button class="${tabClass}" data-tld="${escapeHtml(tld)}">${escapeHtml(tld)} (${count})</button>`;
+    });
+
+    // Overflow dropdown if needed
+    let overflowHtml = '';
+    if (overflowTlds.length > 0) {
+        const overflowActive = overflowTlds.some(([tld]) => currentFilter === tld);
+        const overflowLabel = overflowActive
+            ? overflowTlds.find(([tld]) => currentFilter === tld)[0]
+            : `+${overflowTlds.length} more`;
+        overflowHtml = `
+            <div class="tld-overflow">
+                <button class="tld-overflow-btn ${overflowActive ? 'active' : ''}">
+                    ${escapeHtml(overflowLabel)} <span class="tld-overflow-arrow">▾</span>
+                </button>
+                <div class="tld-overflow-menu">
+                    ${overflowTlds.map(([tld, count]) => {
+                        const isActive = currentFilter === tld;
+                        return `<button class="tld-overflow-item ${isActive ? 'active' : ''}" data-tld="${escapeHtml(tld)}">${escapeHtml(tld)} (${count})</button>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="tld-filter-bar">
+            <div class="tld-tabs">
+                ${tabsHtml}
+                ${overflowHtml}
+            </div>
+        </div>
+    `;
+}
+
 export function renderResultsForTab(tab) {
     if (activeTabId !== tab.id) return; // Don't render if not active
 
     const categories = tab.categories;
     const rounds = tab.rounds || 1;
     const categoryOrder = ['Professional', 'Playful', 'Creative', 'Minimal'];
-    const totalDomains = Object.values(categories).flat().length;
     const isPro = currentUser && currentUser.subscriptionTier === 'pro';
+
+    // Get TLD filter state
+    const currentTldFilter = getTldFilter(tab.id);
+
+    // Calculate TLD counts from all domains
+    const tldCounts = getTldCounts(categories);
+
+    // Filter categories by TLD if filter is active
+    const filteredCategories = {};
+    for (const [cat, domains] of Object.entries(categories)) {
+        if (currentTldFilter) {
+            filteredCategories[cat] = domains.filter(d => getTld(d.name) === currentTldFilter);
+        } else {
+            filteredCategories[cat] = domains;
+        }
+    }
+
+    const totalDomains = Object.values(filteredCategories).flat().length;
 
     // Small inline badge for multi-round searches
     const roundsBadge = rounds > 1
@@ -51,13 +139,16 @@ export function renderResultsForTab(tab) {
         </div>
     ` : '';
 
+    // TLD filter bar
+    const tldFilterHtml = renderTldFilterBar(tab, tldCounts);
+
     const sectionsHtml = categoryOrder
         .map((cat, idx) => {
-            const domains = categories[cat] || [];
+            const domains = filteredCategories[cat] || [];
             // Put the rounds badge after the first category title
             const badge = idx === 0 ? roundsBadge : '';
             const gridContent = domains.length > 0
-                ? domains.map((d, i) => renderDomainCard(d, i, categories)).join('')
+                ? domains.map((d, i) => renderDomainCard(d, i, filteredCategories)).join('')
                 : '<div class="empty-category">No available domains found</div>';
             return `
                 <section class="category${domains.length === 0 ? ' category-empty' : ''}">
@@ -80,7 +171,7 @@ export function renderResultsForTab(tab) {
     // Render unavailable domains section
     const unavailableHtml = renderUnavailableSection(tab.unavailable);
 
-    dom.resultsEl.innerHTML = searchPhraseHtml + searchedDomainHtml + sectionsHtml + unavailableHtml;
+    dom.resultsEl.innerHTML = searchPhraseHtml + tldFilterHtml + searchedDomainHtml + sectionsHtml + unavailableHtml;
     dom.resultsEl.hidden = false;
     dom.welcomeContent.hidden = true;
 
@@ -97,6 +188,43 @@ export function renderResultsForTab(tab) {
             }
         });
     }
+
+    // TLD filter tab handlers
+    dom.resultsEl.querySelectorAll('.tld-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tld = btn.dataset.tld || null;
+            setTldFilter(tab.id, tld);
+            renderResultsForTab(tab);
+        });
+    });
+
+    // TLD overflow dropdown toggle
+    const overflowBtn = dom.resultsEl.querySelector('.tld-overflow-btn');
+    if (overflowBtn) {
+        overflowBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const menu = dom.resultsEl.querySelector('.tld-overflow-menu');
+            const isShowing = menu.classList.toggle('show');
+
+            // Close dropdown when clicking outside
+            if (isShowing) {
+                const closeHandler = () => {
+                    menu.classList.remove('show');
+                    document.removeEventListener('click', closeHandler);
+                };
+                document.addEventListener('click', closeHandler);
+            }
+        });
+    }
+
+    // TLD overflow menu item handlers
+    dom.resultsEl.querySelectorAll('.tld-overflow-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tld = btn.dataset.tld || null;
+            setTldFilter(tab.id, tld);
+            renderResultsForTab(tab);
+        });
+    });
 
     // Add refresh button handlers
     dom.resultsEl.querySelectorAll('.cache-refresh').forEach(btn => {
