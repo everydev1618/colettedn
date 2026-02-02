@@ -184,9 +184,6 @@ async function handleFormSubmit(e) {
     dom.resultsEl.hidden = false;
 
     try {
-        // Use Function URL if configured (no timeout), otherwise fall back to API Gateway
-        const generateUrl = FUNCTION_URL ? `${FUNCTION_URL}api/generate` : '/api/generate';
-
         // Build request body - use custom TLDs if in custom mode, otherwise use style
         const requestBody = { description };
         if (customTlds) {
@@ -195,11 +192,35 @@ async function handleFormSubmit(e) {
             requestBody.tldStyle = tldStyle;
         }
 
-        const response = await fetch(generateUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-        });
+        // Use Function URL if configured (no timeout), with fallback to API Gateway
+        // Some ad blockers may block lambda-url domains, so we fall back to relative path
+        let response;
+        const functionUrl = FUNCTION_URL ? `${FUNCTION_URL}api/generate` : null;
+        const apiGatewayUrl = '/api/generate';
+
+        if (functionUrl) {
+            try {
+                response = await fetch(functionUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+            } catch (fetchErr) {
+                // Function URL failed (likely blocked), fall back to API Gateway
+                console.warn('Function URL failed, falling back to API Gateway:', fetchErr.message);
+                response = await fetch(apiGatewayUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+            }
+        } else {
+            response = await fetch(apiGatewayUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+            });
+        }
 
         // Handle service unavailable (kill switch active)
         if (response.status === 503) {
@@ -260,11 +281,18 @@ async function handleFormSubmit(e) {
 
     } catch (err) {
         tab.isLoading = false;
-        tab.error = 'Failed to generate domains. Please try again.';
+        // Provide more specific error messages
+        let errorMessage = 'Failed to generate domains. Please try again.';
+        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+            errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (err.name === 'AbortError') {
+            errorMessage = 'Request timed out. Please try again.';
+        }
+        tab.error = errorMessage;
         renderTabBar();
         showErrorForTab(tab);
         saveTabsToStorage();
-        console.error(err);
+        console.error('Generate error:', err.name, err.message, err);
     } finally {
         dom.submitBtn.disabled = false;
         dom.btnText.hidden = false;
