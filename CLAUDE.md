@@ -2,49 +2,34 @@
 
 ## Project Overview
 
-ColetteDN is an AI-powered domain name brainstorming tool. Users describe their project and get categorized domain suggestions with real-time availability checking via RDAP (authoritative registry lookups).
-
-## Before Making Infrastructure Changes
-
-**ALWAYS read `docs/infrastructure.md` first** to understand:
-- AWS region requirements (us-east-1 only)
-- Environment variables
-- RDAP domain availability checking
-
-## Key Constraints
-
-1. **Region**: All AWS resources MUST be in `us-east-1`
-2. **Timeouts**: API Gateway has 29s limit; use Function URL for long operations
+ColetteDN is an AI-powered domain name brainstorming tool built on [Vega](https://github.com/everydev1618/govega). Users chat with Colette, describe their project, and get available domain suggestions verified via RDAP.
 
 ## Project Structure
 
 ```
-├── cmd/lambda/         # Lambda entrypoint
+├── cmd/colettedn/      # Main entrypoint (vega serve + custom tools)
+├── colette.vega.yaml   # Agent definition
 ├── internal/
-│   ├── cache/          # DynamoDB/SQLite caching
-│   ├── generator/      # Claude API integration
-│   ├── handler/        # HTTP handlers
-│   ├── killswitch/     # Cost protection
-│   ├── rdap/           # Domain availability via RDAP
-│   └── ratelimit/      # Rate limiting
-├── frontend/           # Static HTML/JS
-├── docs/               # Infrastructure documentation
-└── template.yaml       # SAM/CloudFormation template
+│   ├── rdap/           # RDAP domain availability checking
+│   └── tools/          # Vega tool wrappers for RDAP
 ```
 
 ## Common Commands
 
 ```bash
-# Local development
-go run cmd/lambda/main.go
+# Run locally
+go run cmd/colettedn/main.go
 
-# Deploy to AWS
-sam build && sam deploy
+# Run tests
+go test -short ./...
 
-# Check logs
-aws logs tail /aws/lambda/colettedn-ColetteDNFunction-* --follow
+# Build binary
+go build -o colettedn cmd/colettedn/main.go
 ```
 
-## Environment Variables
+## Configuration
 
-See `docs/infrastructure.md` for full list. Local dev uses `.env` file.
+API key is read from `~/.vega/env`:
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```

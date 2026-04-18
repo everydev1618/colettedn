@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ColetteDN — Find your perfect domain name in one conversation</title>
+    <meta name="description" content="AI-powered domain name brainstorming. Describe your idea, get creative suggestions, only available names. Powered by Vega.">
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --accent: #e8915a;
+            --accent-dim: rgba(232, 145, 90, 0.15);
+            --green: #3fb950;
+            --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Nav */
+        nav {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-family: var(--mono);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            text-decoration: none;
+        }
+        .logo span { color: var(--accent); }
+        nav a.gh-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        nav a.gh-link:hover { color: var(--text); }
+
+        /* Hero */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 44px;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+        }
+        .hero h1 em {
+            font-style: normal;
+            color: var(--accent);
+        }
+        .hero p {
+            font-size: 18px;
+            color: var(--text-muted);
+            max-width: 520px;
+            margin: 0 auto 40px;
+        }
+
+        /* Terminal demo */
+        .terminal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            text-align: left;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .terminal-header {
+            background: var(--border);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #484f58;
+        }
+        .terminal-dot:nth-child(1) { background: #f85149; }
+        .terminal-dot:nth-child(2) { background: #d29922; }
+        .terminal-dot:nth-child(3) { background: #3fb950; }
+        .terminal-body {
+            padding: 20px;
+            font-family: var(--mono);
+            font-size: 14px;
+            line-height: 1.7;
+            overflow-x: auto;
+        }
+        .terminal-body .prompt { color: var(--accent); }
+        .terminal-body .output { color: var(--text-muted); }
+        .terminal-body .available { color: var(--green); font-weight: 600; }
+        .terminal-body .category { color: var(--accent); font-weight: 600; margin-top: 8px; display: inline-block; }
+
+        /* How it works */
+        .how-it-works {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+        }
+        .how-it-works h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 32px;
+            letter-spacing: -0.02em;
+        }
+        .steps {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        .step {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        .step-number {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 15px;
+            font-family: var(--mono);
+        }
+        .step h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .step p {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* Install */
+        .install {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+        }
+        .install h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+        .install > .container > p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        .install-step {
+            margin-bottom: 24px;
+        }
+        .install-step-label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .code-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px 20px;
+            font-family: var(--mono);
+            font-size: 14px;
+            line-height: 1.6;
+            position: relative;
+            overflow-x: auto;
+        }
+        .code-block .comment { color: var(--text-muted); }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--border);
+            border: none;
+            color: var(--text-muted);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: var(--mono);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            background: #484f58;
+            color: var(--text);
+        }
+        .prereqs {
+            background: var(--accent-dim);
+            border: 1px solid rgba(232, 145, 90, 0.3);
+            border-radius: 8px;
+            padding: 16px 20px;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        .prereqs strong { color: var(--accent); }
+        .prereqs a {
+            color: var(--accent);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        /* Features */
+        .features {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+        }
+        .features h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 32px;
+            letter-spacing: -0.02em;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .feature {
+            padding: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .feature h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .feature p {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+        footer p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        footer a {
+            color: var(--text-muted);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            transition: color 0.2s;
+        }
+        footer a:hover { color: var(--text); }
+        .vega-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 32px; }
+            .hero p { font-size: 16px; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .terminal-body { font-size: 12px; padding: 14px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container">
+        <a href="/" class="logo">colette<span>dn</span></a>
+        <a href="https://github.com/everydev1618/colettedn" class="gh-link">GitHub</a>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="container">
+        <h1>Find your perfect domain name<br><em>in one conversation</em></h1>
+        <p>Describe your idea. Colette brainstorms creative names across every vibe, checks availability in real-time, and only shows you what's actually open.</p>
+
+        <div class="terminal">
+            <div class="terminal-header">
+                <div class="terminal-dot"></div>
+                <div class="terminal-dot"></div>
+                <div class="terminal-dot"></div>
+            </div>
+            <div class="terminal-body">
+                <div><span class="prompt">you:</span> I'm building a developer tool for deploying side projects instantly</div>
+                <br>
+                <div><span class="prompt">colette:</span> Here's what's available:</div>
+                <br>
+                <div><span class="category">Clever</span></div>
+                <div><span class="available">shipfast.dev</span></div>
+                <div><span class="available">yeetdeploy.com</span></div>
+                <br>
+                <div><span class="category">Brandable</span></div>
+                <div><span class="available">deploykit.io</span></div>
+                <div><span class="available">zuplo.dev</span></div>
+                <br>
+                <div><span class="category">Techy</span></div>
+                <div><span class="available">instadeploy.dev</span></div>
+                <div><span class="available">pushprod.io</span></div>
+                <br>
+                <div class="output">All checked via RDAP — these are actually available right now.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="how-it-works">
+    <div class="container">
+        <h2>How it works</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div>
+                    <h3>Describe your idea</h3>
+                    <p>Tell Colette about your project — what it does, who it's for, what vibe you want. She takes it from there.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div>
+                    <h3>Get creative suggestions</h3>
+                    <p>Colette generates 20-30 names across five categories — Clever, Brandable, Professional, Playful, and Techy — across dozens of TLDs.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div>
+                    <h3>Only available names</h3>
+                    <p>Every suggestion is checked via RDAP in real-time. No guessing, no stale WHOIS data. If Colette shows it, you can register it.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="install" id="install">
+    <div class="container">
+        <h2>Get started in 60 seconds</h2>
+        <p>ColetteDN runs on your machine. You bring your own Anthropic API key.</p>
+
+        <div class="prereqs">
+            <strong>Prerequisites:</strong> <a href="https://go.dev/dl/">Go 1.21+</a> and an <a href="https://console.anthropic.com/settings/keys">Anthropic API key</a>
+        </div>
+
+        <div class="install-step">
+            <div class="install-step-label">Clone</div>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">copy</button>
+git clone https://github.com/everydev1618/colettedn<br>
+cd colettedn
+            </div>
+        </div>
+
+        <div class="install-step">
+            <div class="install-step-label">Set your API key</div>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">copy</button>
+mkdir -p ~/.vega<br>
+echo "ANTHROPIC_API_KEY=<span class="comment">your-key-here</span>" > ~/.vega/env
+            </div>
+        </div>
+
+        <div class="install-step">
+            <div class="install-step-label">Run it</div>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">copy</button>
+go run cmd/colettedn/main.go
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="features">
+    <div class="container">
+        <h2>What you get</h2>
+        <div class="feature-grid">
+            <div class="feature">
+                <h3>70+ TLDs</h3>
+                <p>Checks .com, .io, .ai, .dev, .app, .co, .me, .xyz, .tech, .org, .net and many more.</p>
+            </div>
+            <div class="feature">
+                <h3>Real-time RDAP</h3>
+                <p>Authoritative registry lookups via IANA bootstrap. Not cached WHOIS — actual availability right now.</p>
+            </div>
+            <div class="feature">
+                <h3>5 creative vibes</h3>
+                <p>Clever, Brandable, Professional, Playful, Techy. Get names that match the feel you want.</p>
+            </div>
+            <div class="feature">
+                <h3>Iterate naturally</h3>
+                <p>Like a name but want variations? Just ask. Colette keeps the conversation going until you find the one.</p>
+            </div>
+            <div class="feature">
+                <h3>Runs locally</h3>
+                <p>Your machine, your API key, your data. Nothing leaves your terminal except API calls to Claude and RDAP servers.</p>
+            </div>
+            <div class="feature">
+                <h3>Powered by Vega</h3>
+                <p>Built on the Vega agent framework. Clean YAML agent definition, custom tools, zero boilerplate.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p><a href="https://github.com/everydev1618/colettedn">GitHub</a></p>
+        <div class="vega-badge">Built with Vega</div>
+    </div>
+</footer>
+
+<script>
+function copyCode(btn) {
+    const block = btn.parentElement;
+    const clone = block.cloneNode(true);
+    clone.querySelector('.copy-btn')?.remove();
+    const text = clone.textContent.trim().replace(/\n{2,}/g, '\n');
+    navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'copied!';
+        setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+}
+</script>
+
+</body>
+</html>
