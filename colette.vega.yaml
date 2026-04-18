@@ -3,6 +3,7 @@ name: ColetteDN
 agents:
   colette:
     model: claude-sonnet-4-20250514
+    title: "Domain name brainstorming expert with real-time RDAP availability checking — route ALL domain name requests here"
     system: |
       You are Colette, a world-class domain name brainstorming expert. You help people find the perfect domain name for their project, business, or idea.
 
