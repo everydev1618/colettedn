@@ -237,6 +237,24 @@
             text-decoration: underline;
             text-underline-offset: 2px;
         }
+        .checks {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        .check-icon {
+            color: var(--green);
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
 
         /* Features */
         .features {
@@ -380,37 +398,49 @@
 
 <section class="install" id="install">
     <div class="container">
-        <h2>Get started in 60 seconds</h2>
-        <p>ColetteDN runs on your machine. You bring your own Anthropic API key.</p>
+        <h2>Get started in 30 seconds</h2>
+        <p>One command. Downloads the binary, verifies the checksum, prompts for your API key.</p>
 
         <div class="prereqs">
-            <strong>Prerequisites:</strong> <a href="https://go.dev/dl/">Go 1.21+</a> and an <a href="https://console.anthropic.com/settings/keys">Anthropic API key</a>
+            <strong>You'll need:</strong> an <a href="https://console.anthropic.com/settings/keys">Anthropic API key</a> (the installer will ask for it)
         </div>
 
         <div class="install-step">
-            <div class="install-step-label">Clone</div>
+            <div class="install-step-label">Install</div>
             <div class="code-block">
                 <button class="copy-btn" onclick="copyCode(this)">copy</button>
-git clone https://github.com/everydev1618/colettedn<br>
-cd colettedn
+curl -fsSL https://raw.githubusercontent.com/everydev1618/colettedn/main/install.sh | bash
             </div>
         </div>
 
         <div class="install-step">
-            <div class="install-step-label">Set your API key</div>
+            <div class="install-step-label">Run</div>
             <div class="code-block">
                 <button class="copy-btn" onclick="copyCode(this)">copy</button>
-mkdir -p ~/.vega<br>
-echo "ANTHROPIC_API_KEY=<span class="comment">your-key-here</span>" > ~/.vega/env
+colettedn
             </div>
         </div>
 
         <div class="install-step">
-            <div class="install-step-label">Run it</div>
+            <div class="install-step-label" style="margin-bottom: 12px;">What the installer does</div>
+            <div class="checks">
+                <div class="check-item"><span class="check-icon">&#10003;</span> Detects your OS and architecture</div>
+                <div class="check-item"><span class="check-icon">&#10003;</span> Downloads the latest release from GitHub</div>
+                <div class="check-item"><span class="check-icon">&#10003;</span> Verifies SHA-256 checksum</div>
+                <div class="check-item"><span class="check-icon">&#10003;</span> Runs a smoke test to confirm the binary works</div>
+                <div class="check-item"><span class="check-icon">&#10003;</span> Validates your API key against Anthropic before saving</div>
+            </div>
+        </div>
+
+        <div class="install-step" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
+            <div class="install-step-label">Or build from source</div>
             <div class="code-block">
                 <button class="copy-btn" onclick="copyCode(this)">copy</button>
+git clone https://github.com/everydev1618/colettedn.git<br>
+cd colettedn<br>
 go run cmd/colettedn/main.go
             </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">Requires <a href="https://go.dev/dl/" style="color: var(--accent);">Go 1.25+</a></p>
         </div>
     </div>
 </section>
