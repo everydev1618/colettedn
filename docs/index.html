@@ -3,20 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ColetteDN — Find your perfect domain name in one conversation</title>
-    <meta name="description" content="AI-powered domain name brainstorming. Describe your idea, get creative suggestions, only available names. Powered by Vega.">
+    <title>ColetteDN — AI domain name brainstorming</title>
+    <meta name="description" content="Tell Colette about your project. She brainstorms domain names and checks if they're actually available.">
     <style>
         :root {
-            --bg: #0d1117;
-            --surface: #161b22;
-            --border: #30363d;
-            --text: #e6edf3;
-            --text-muted: #8b949e;
+            --bg: #0a0a0a;
+            --surface: #111;
+            --border: #222;
+            --text: #e8e8e8;
+            --text-mid: #999;
+            --text-dim: #555;
             --accent: #e8915a;
-            --accent-dim: rgba(232, 145, 90, 0.15);
-            --green: #3fb950;
+            --accent-glow: rgba(232, 145, 90, 0.08);
+            --green: #4ade80;
+            --red-dim: #555;
             --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
-            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,474 +29,449 @@
             font-family: var(--sans);
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
-        .container {
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
 
-        /* Nav */
-        nav {
-            padding: 20px 0;
-            border-bottom: 1px solid var(--border);
-        }
-        nav .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 0 40px; }
+
+        /* --- Nav --- */
+        nav { padding: 20px 0; }
+        nav .wrap { display: flex; justify-content: space-between; align-items: center; }
         .logo {
             font-family: var(--mono);
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--text);
             text-decoration: none;
+            letter-spacing: -0.02em;
         }
         .logo span { color: var(--accent); }
-        nav a.gh-link {
-            color: var(--text-muted);
+        .nav-links { display: flex; gap: 24px; }
+        .nav-links a {
+            color: var(--text-dim);
+            font-size: 13px;
             text-decoration: none;
-            font-size: 14px;
-            transition: color 0.2s;
+            transition: color 0.15s;
         }
-        nav a.gh-link:hover { color: var(--text); }
+        .nav-links a:hover { color: var(--text); text-decoration: none; }
 
-        /* Hero */
+        /* --- Hero --- */
         .hero {
-            padding: 80px 0 60px;
-            text-align: center;
-        }
-        .hero h1 {
-            font-size: 44px;
-            font-weight: 800;
-            line-height: 1.15;
-            letter-spacing: -0.03em;
-            margin-bottom: 16px;
-        }
-        .hero h1 em {
-            font-style: normal;
-            color: var(--accent);
-        }
-        .hero p {
-            font-size: 18px;
-            color: var(--text-muted);
-            max-width: 520px;
-            margin: 0 auto 40px;
+            padding: 70px 0 0;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 60px;
+            align-items: start;
+            min-height: calc(100vh - 60px);
         }
 
-        /* Terminal demo */
+        .hero-left { padding-top: 40px; }
+
+        .hero h1 {
+            font-size: 52px;
+            font-weight: 800;
+            line-height: 1.05;
+            letter-spacing: -0.04em;
+            margin-bottom: 20px;
+        }
+        .hero h1 .accent { color: var(--accent); }
+
+        .hero .sub {
+            font-size: 16px;
+            color: var(--text-mid);
+            max-width: 380px;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        /* --- Install --- */
+        .install-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+        }
+        .install-cmd {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .install-cmd code {
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--text);
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+        .install-cmd code .dim { color: var(--text-dim); }
+        .copy-btn {
+            flex-shrink: 0;
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-family: var(--mono);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .copy-btn:hover { border-color: var(--text-dim); color: var(--text-mid); }
+        .install-note {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .install-note a { font-size: 12px; }
+
+        .source-line {
+            margin-top: 28px;
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        .source-line code {
+            font-family: var(--mono);
+            color: var(--text-mid);
+            font-size: 12px;
+        }
+
+        /* --- Terminal --- */
+        .hero-right { position: relative; }
+
         .terminal {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            text-align: left;
+            border-radius: 12px;
             overflow: hidden;
-            margin-bottom: 20px;
+            box-shadow: 0 0 80px var(--accent-glow), 0 20px 60px rgba(0,0,0,0.5);
         }
-        .terminal-header {
-            background: var(--border);
-            padding: 10px 16px;
+        .terminal-bar {
+            padding: 12px 16px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 7px;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border);
         }
-        .terminal-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #484f58;
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-r { background: #f87171; }
+        .dot-y { background: #fbbf24; }
+        .dot-g { background: #4ade80; }
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
         }
-        .terminal-dot:nth-child(1) { background: #f85149; }
-        .terminal-dot:nth-child(2) { background: #d29922; }
-        .terminal-dot:nth-child(3) { background: #3fb950; }
         .terminal-body {
-            padding: 20px;
+            padding: 24px;
             font-family: var(--mono);
-            font-size: 14px;
-            line-height: 1.7;
-            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.75;
+            min-height: 480px;
         }
-        .terminal-body .prompt { color: var(--accent); }
-        .terminal-body .output { color: var(--text-muted); }
-        .terminal-body .available { color: var(--green); font-weight: 600; }
-        .terminal-body .category { color: var(--accent); font-weight: 600; margin-top: 8px; display: inline-block; }
+        .terminal-body .line { opacity: 0; animation: fadeIn 0.12s ease forwards; }
+        .terminal-body .prompt-label { color: var(--accent); }
+        .terminal-body .user-input { color: var(--text); }
+        .terminal-body .colette-label { color: var(--accent); font-weight: 600; }
+        .terminal-body .category {
+            color: var(--text-dim);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 4px;
+            display: block;
+        }
+        .terminal-body .domain { color: var(--green); }
+        .terminal-body .domain::before { content: '  '; }
+        .terminal-body .taken { color: var(--red-dim); text-decoration: line-through; }
+        .terminal-body .taken::before { content: '  '; }
+        .terminal-body .checking { color: var(--text-dim); }
+        .terminal-body .cursor {
+            display: inline-block;
+            width: 7px;
+            height: 15px;
+            background: var(--accent);
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 1px;
+        }
+        .terminal-body .blank { height: 10px; }
 
-        /* How it works */
-        .how-it-works {
-            padding: 60px 0;
+        @keyframes blink { 50% { opacity: 0; } }
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        /* --- Details --- */
+        .details {
+            padding: 80px 0;
             border-top: 1px solid var(--border);
         }
-        .how-it-works h2 {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 32px;
-            letter-spacing: -0.02em;
-        }
-        .steps {
+        .details-grid {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 24px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 40px;
         }
-        .step {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-        }
-        .step-number {
-            flex-shrink: 0;
-            width: 36px;
-            height: 36px;
-            background: var(--accent-dim);
-            color: var(--accent);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 15px;
+        .detail h3 {
             font-family: var(--mono);
-        }
-        .step h3 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-        .step p {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        /* Install */
-        .install {
-            padding: 60px 0;
-            border-top: 1px solid var(--border);
-        }
-        .install h2 {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            letter-spacing: -0.02em;
-        }
-        .install > .container > p {
-            color: var(--text-muted);
-            font-size: 14px;
-            margin-bottom: 32px;
-        }
-        .install-step {
-            margin-bottom: 24px;
-        }
-        .install-step-label {
             font-size: 13px;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
             margin-bottom: 8px;
-        }
-        .code-block {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px 20px;
-            font-family: var(--mono);
-            font-size: 14px;
-            line-height: 1.6;
-            position: relative;
-            overflow-x: auto;
-        }
-        .code-block .comment { color: var(--text-muted); }
-        .copy-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: var(--border);
-            border: none;
-            color: var(--text-muted);
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-family: var(--mono);
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .copy-btn:hover {
-            background: #484f58;
             color: var(--text);
         }
-        .prereqs {
-            background: var(--accent-dim);
-            border: 1px solid rgba(232, 145, 90, 0.3);
-            border-radius: 8px;
-            padding: 16px 20px;
+        .detail p {
             font-size: 14px;
-            margin-bottom: 32px;
-        }
-        .prereqs strong { color: var(--accent); }
-        .prereqs a {
-            color: var(--accent);
-            text-decoration: underline;
-            text-underline-offset: 2px;
-        }
-        .checks {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .check-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-        .check-icon {
-            color: var(--green);
-            font-weight: 700;
-            font-size: 14px;
-            flex-shrink: 0;
+            color: var(--text-mid);
+            line-height: 1.6;
         }
 
-        /* Features */
-        .features {
-            padding: 60px 0;
+        /* --- How it works --- */
+        .how {
+            padding: 80px 0;
             border-top: 1px solid var(--border);
         }
-        .features h2 {
-            font-size: 28px;
+        .how h2 {
+            font-size: 32px;
             font-weight: 700;
-            margin-bottom: 32px;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.03em;
+            margin-bottom: 48px;
         }
-        .feature-grid {
+        .how-steps {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 32px;
         }
-        .feature {
-            padding: 20px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
+        .how-step {
+            position: relative;
+            padding-left: 20px;
+            border-left: 2px solid var(--border);
         }
-        .feature h3 {
-            font-size: 15px;
+        .how-step.active { border-left-color: var(--accent); }
+        .how-step .num {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+        }
+        .how-step.active .num { color: var(--accent); }
+        .how-step h3 {
+            font-size: 16px;
             font-weight: 600;
             margin-bottom: 6px;
         }
-        .feature p {
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.5;
+        .how-step p {
+            font-size: 14px;
+            color: var(--text-mid);
+            line-height: 1.6;
         }
 
-        /* Footer */
+        /* --- Footer --- */
         footer {
-            padding: 40px 0;
+            padding: 60px 0 40px;
             border-top: 1px solid var(--border);
             text-align: center;
         }
         footer p {
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-        footer a {
-            color: var(--text-muted);
-            text-decoration: underline;
-            text-underline-offset: 2px;
-            transition: color 0.2s;
-        }
-        footer a:hover { color: var(--text); }
-        .vega-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 12px;
-            font-size: 13px;
-            color: var(--text-muted);
+            font-size: 12px;
+            color: var(--text-dim);
         }
 
-        /* Responsive */
-        @media (max-width: 600px) {
+        /* --- Responsive --- */
+        @media (max-width: 900px) {
+            .hero {
+                grid-template-columns: 1fr;
+                gap: 40px;
+                min-height: auto;
+                padding: 40px 0 0;
+            }
+            .hero-left { padding-top: 0; }
+            .hero h1 { font-size: 38px; }
+            .hero .sub { max-width: 100%; }
+            .terminal-body { min-height: 380px; font-size: 12px; }
+            .wrap { padding: 0 20px; }
+            .details-grid { grid-template-columns: 1fr; gap: 28px; }
+            .how-steps { grid-template-columns: 1fr; gap: 24px; }
+        }
+
+        @media (max-width: 500px) {
             .hero h1 { font-size: 32px; }
-            .hero p { font-size: 16px; }
-            .feature-grid { grid-template-columns: 1fr; }
-            .terminal-body { font-size: 12px; padding: 14px; }
+            .install-cmd code { font-size: 11px; }
+            .terminal-body { padding: 16px; min-height: 320px; }
         }
     </style>
 </head>
 <body>
 
 <nav>
-    <div class="container">
+    <div class="wrap">
         <a href="/" class="logo">colette<span>dn</span></a>
-        <a href="https://github.com/everydev1618/colettedn" class="gh-link">GitHub</a>
+        <div class="nav-links">
+            <a href="https://github.com/everydev1618/colettedn">GitHub</a>
+        </div>
     </div>
 </nav>
 
-<section class="hero">
-    <div class="container">
-        <h1>Find your perfect domain name<br><em>in one conversation</em></h1>
-        <p>Describe your idea. Colette brainstorms creative names across every vibe, checks availability in real-time, and only shows you what's actually open.</p>
+<div class="wrap">
+    <section class="hero">
+        <div class="hero-left">
+            <h1>Name your<br>next project<span class="accent">.</span></h1>
+            <p class="sub">Describe your idea. Colette brainstorms domain names and checks availability in real-time. If she shows it, you can register it.</p>
 
-        <div class="terminal">
-            <div class="terminal-header">
-                <div class="terminal-dot"></div>
-                <div class="terminal-dot"></div>
-                <div class="terminal-dot"></div>
+            <div class="install-block">
+                <div class="install-cmd">
+                    <code><span class="dim">$</span> curl -fsSL colettedn.com/install.sh | bash</code>
+                    <button class="copy-btn" onclick="copy(this, 'curl -fsSL colettedn.com/install.sh | bash')">copy</button>
+                </div>
             </div>
-            <div class="terminal-body">
-                <div><span class="prompt">you:</span> I'm building a developer tool for deploying side projects instantly</div>
-                <br>
-                <div><span class="prompt">colette:</span> Here's what's available:</div>
-                <br>
-                <div><span class="category">Clever</span></div>
-                <div><span class="available">shipfast.dev</span></div>
-                <div><span class="available">yeetdeploy.com</span></div>
-                <br>
-                <div><span class="category">Brandable</span></div>
-                <div><span class="available">deploykit.io</span></div>
-                <div><span class="available">zuplo.dev</span></div>
-                <br>
-                <div><span class="category">Techy</span></div>
-                <div><span class="available">instadeploy.dev</span></div>
-                <div><span class="available">pushprod.io</span></div>
-                <br>
-                <div class="output">All checked via RDAP — these are actually available right now.</div>
+            <p class="install-note">Needs an <a href="https://console.anthropic.com/settings/keys">Anthropic API key</a>. The installer asks.</p>
+
+            <p class="source-line">or build from source: <code>git clone &amp;&amp; go run cmd/colettedn/main.go</code></p>
+        </div>
+
+        <div class="hero-right">
+            <div class="terminal">
+                <div class="terminal-bar">
+                    <div class="dot dot-r"></div>
+                    <div class="dot dot-y"></div>
+                    <div class="dot dot-g"></div>
+                    <span class="terminal-title">colettedn</span>
+                    <div style="width: 36px;"></div>
+                </div>
+                <div class="terminal-body" id="demo"></div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<section class="how">
+    <div class="wrap">
+        <h2>How Colette works</h2>
+        <div class="how-steps">
+            <div class="how-step active">
+                <div class="num">01</div>
+                <h3>You describe your project</h3>
+                <p>"A marketplace for freelance designers" or "CLI tool that makes Kubernetes less painful" — whatever you're building.</p>
+            </div>
+            <div class="how-step">
+                <div class="num">02</div>
+                <h3>Colette brainstorms</h3>
+                <p>She generates 20-30 names across five vibes — clever, brandable, professional, playful, techy — spanning .com, .io, .ai, .dev and 70+ TLDs.</p>
+            </div>
+            <div class="how-step">
+                <div class="num">03</div>
+                <h3>Only what's available</h3>
+                <p>Every name is checked via RDAP — real-time registry lookups, not cached WHOIS. Taken names are crossed out. Available names are yours to register.</p>
             </div>
         </div>
     </div>
 </section>
 
-<section class="how-it-works">
-    <div class="container">
-        <h2>How it works</h2>
-        <div class="steps">
-            <div class="step">
-                <div class="step-number">1</div>
-                <div>
-                    <h3>Describe your idea</h3>
-                    <p>Tell Colette about your project — what it does, who it's for, what vibe you want. She takes it from there.</p>
-                </div>
-            </div>
-            <div class="step">
-                <div class="step-number">2</div>
-                <div>
-                    <h3>Get creative suggestions</h3>
-                    <p>Colette generates 20-30 names across five categories — Clever, Brandable, Professional, Playful, and Techy — across dozens of TLDs.</p>
-                </div>
-            </div>
-            <div class="step">
-                <div class="step-number">3</div>
-                <div>
-                    <h3>Only available names</h3>
-                    <p>Every suggestion is checked via RDAP in real-time. No guessing, no stale WHOIS data. If Colette shows it, you can register it.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section class="install" id="install">
-    <div class="container">
-        <h2>Get started in 30 seconds</h2>
-        <p>One command. Downloads the binary, verifies the checksum, prompts for your API key.</p>
-
-        <div class="prereqs">
-            <strong>You'll need:</strong> an <a href="https://console.anthropic.com/settings/keys">Anthropic API key</a> (the installer will ask for it)
-        </div>
-
-        <div class="install-step">
-            <div class="install-step-label">Install</div>
-            <div class="code-block">
-                <button class="copy-btn" onclick="copyCode(this)">copy</button>
-curl -fsSL https://raw.githubusercontent.com/everydev1618/colettedn/main/install.sh | bash
-            </div>
-        </div>
-
-        <div class="install-step">
-            <div class="install-step-label">Run</div>
-            <div class="code-block">
-                <button class="copy-btn" onclick="copyCode(this)">copy</button>
-colettedn
-            </div>
-        </div>
-
-        <div class="install-step">
-            <div class="install-step-label" style="margin-bottom: 12px;">What the installer does</div>
-            <div class="checks">
-                <div class="check-item"><span class="check-icon">&#10003;</span> Detects your OS and architecture</div>
-                <div class="check-item"><span class="check-icon">&#10003;</span> Downloads the latest release from GitHub</div>
-                <div class="check-item"><span class="check-icon">&#10003;</span> Verifies SHA-256 checksum</div>
-                <div class="check-item"><span class="check-icon">&#10003;</span> Runs a smoke test to confirm the binary works</div>
-                <div class="check-item"><span class="check-icon">&#10003;</span> Validates your API key against Anthropic before saving</div>
-            </div>
-        </div>
-
-        <div class="install-step" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
-            <div class="install-step-label">Or build from source</div>
-            <div class="code-block">
-                <button class="copy-btn" onclick="copyCode(this)">copy</button>
-git clone https://github.com/everydev1618/colettedn.git<br>
-cd colettedn<br>
-go run cmd/colettedn/main.go
-            </div>
-            <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">Requires <a href="https://go.dev/dl/" style="color: var(--accent);">Go 1.25+</a></p>
-        </div>
-    </div>
-</section>
-
-<section class="features">
-    <div class="container">
-        <h2>What you get</h2>
-        <div class="feature-grid">
-            <div class="feature">
-                <h3>70+ TLDs</h3>
-                <p>Checks .com, .io, .ai, .dev, .app, .co, .me, .xyz, .tech, .org, .net and many more.</p>
-            </div>
-            <div class="feature">
-                <h3>Real-time RDAP</h3>
-                <p>Authoritative registry lookups via IANA bootstrap. Not cached WHOIS — actual availability right now.</p>
-            </div>
-            <div class="feature">
-                <h3>5 creative vibes</h3>
-                <p>Clever, Brandable, Professional, Playful, Techy. Get names that match the feel you want.</p>
-            </div>
-            <div class="feature">
-                <h3>Iterate naturally</h3>
-                <p>Like a name but want variations? Just ask. Colette keeps the conversation going until you find the one.</p>
-            </div>
-            <div class="feature">
+<section class="details">
+    <div class="wrap">
+        <div class="details-grid">
+            <div class="detail">
                 <h3>Runs locally</h3>
-                <p>Your machine, your API key, your data. Nothing leaves your terminal except API calls to Claude and RDAP servers.</p>
+                <p>Your machine, your API key. Nothing stored, nothing tracked. Colette runs as a local server on port 3001.</p>
             </div>
-            <div class="feature">
-                <h3>Powered by Vega</h3>
-                <p>Built on the Vega agent framework. Clean YAML agent definition, custom tools, zero boilerplate.</p>
+            <div class="detail">
+                <h3>Iterate naturally</h3>
+                <p>Like "vettd" but want more? Ask Colette for variations. She keeps the conversation going until you find the one.</p>
+            </div>
+            <div class="detail">
+                <h3>A Vega app</h3>
+                <p>ColetteDN is built on <a href="https://github.com/everydev1618/govega">Vega</a> — an agent framework where AI apps are defined in a single YAML file. The entire brain of Colette is <a href="https://github.com/everydev1618/colettedn/blob/main/colette.vega.yaml">41 lines of YAML</a> — her personality, her tools, her workflow. Vega handles the rest: model orchestration, tool execution, the local server. No boilerplate, no glue code.</p>
             </div>
         </div>
     </div>
 </section>
 
 <footer>
-    <div class="container">
-        <p><a href="https://github.com/everydev1618/colettedn">GitHub</a></p>
-        <div class="vega-badge">Built with Vega</div>
+    <div class="wrap">
+        <p>Built with <a href="https://github.com/everydev1618/govega">Vega</a></p>
     </div>
 </footer>
 
 <script>
-function copyCode(btn) {
-    const block = btn.parentElement;
-    const clone = block.cloneNode(true);
-    clone.querySelector('.copy-btn')?.remove();
-    const text = clone.textContent.trim().replace(/\n{2,}/g, '\n');
+function copy(btn, text) {
     navigator.clipboard.writeText(text).then(() => {
         btn.textContent = 'copied!';
-        setTimeout(() => btn.textContent = 'copy', 2000);
+        setTimeout(() => btn.textContent = 'copy', 1500);
     });
 }
+
+const demo = document.getElementById('demo');
+const lines = [
+    { type: 'prompt', text: "I'm building a tool for indie hackers to validate startup ideas" },
+    { type: 'blank' },
+    { type: 'colette', text: "On it. Let me brainstorm some names and check what's open..." },
+    { type: 'blank' },
+    { type: 'checking', text: 'checking 24 domains across .com .io .ai .dev .app ...' },
+    { type: 'blank' },
+    { type: 'category', text: 'CLEVER' },
+    { type: 'domain', name: 'validly.io' },
+    { type: 'domain', name: 'proofrun.com' },
+    { type: 'taken', name: 'litmusai.com' },
+    { type: 'blank' },
+    { type: 'category', text: 'BRANDABLE' },
+    { type: 'domain', name: 'vettd.io' },
+    { type: 'taken', name: 'launchkit.ai' },
+    { type: 'domain', name: 'testably.dev' },
+    { type: 'blank' },
+    { type: 'category', text: 'PLAYFUL' },
+    { type: 'domain', name: 'shipit.dev' },
+    { type: 'taken', name: 'sidegig.app' },
+    { type: 'domain', name: 'buildsprint.com' },
+    { type: 'blank' },
+    { type: 'colette', text: '6 available. Want variations on any of these?' },
+    { type: 'blank' },
+    { type: 'prompt', text: 'more like vettd — short, punchy, made-up' },
+    { type: 'cursor' },
+];
+
+const delays = {
+    prompt: 500, blank: 150, colette: 400,
+    checking: 700, category: 300, domain: 200, taken: 200, cursor: 0,
+};
+
+let i = 0;
+function tick() {
+    if (i >= lines.length) return;
+    const line = lines[i];
+    const el = document.createElement('div');
+    el.classList.add('line');
+    el.style.animationDelay = `${i * 0.02}s`;
+
+    if (line.type === 'prompt') {
+        el.innerHTML = `<span class="prompt-label">you:</span> <span class="user-input">${line.text}</span>`;
+    } else if (line.type === 'colette') {
+        el.innerHTML = `<span class="colette-label">colette:</span> ${line.text}`;
+    } else if (line.type === 'checking') {
+        el.innerHTML = `<span class="checking">${line.text}</span>`;
+    } else if (line.type === 'category') {
+        el.innerHTML = `<span class="category">${line.text}</span>`;
+    } else if (line.type === 'domain') {
+        el.innerHTML = `<span class="domain">${line.name}</span>`;
+    } else if (line.type === 'taken') {
+        el.innerHTML = `<span class="taken">${line.name}</span>`;
+    } else if (line.type === 'blank') {
+        el.classList.add('blank');
+    } else if (line.type === 'cursor') {
+        el.innerHTML = `<span class="prompt-label">you:</span> <span class="cursor"></span>`;
+    }
+
+    demo.appendChild(el);
+    i++;
+    setTimeout(tick, delays[line.type] || 200);
+}
+
+const obs = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) { setTimeout(tick, 300); obs.disconnect(); }
+}, { threshold: 0.2 });
+obs.observe(document.querySelector('.terminal'));
 </script>
 
 </body>
