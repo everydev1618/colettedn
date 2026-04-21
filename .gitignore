@@ -38,4 +38,8 @@ cmd/lambda/bootstrap
 cmd/lambda/frontend/
 api
 lambda
-colettedn
+/colettedn
+
+# Go workspace (local dev only)
+go.work
+go.work.sum

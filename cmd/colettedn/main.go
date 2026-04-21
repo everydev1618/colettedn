@@ -16,6 +16,7 @@ import (
 	"github.com/everydev1618/govega/tools"
 
 	"github.com/everydev1618/colettedn/internal/rdap"
+	"github.com/everydev1618/colettedn/internal/selfupdate"
 	cdntools "github.com/everydev1618/colettedn/internal/tools"
 )
 
@@ -30,6 +31,15 @@ func main() {
 		fmt.Println(Version)
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--upgrade" {
+		if err := selfupdate.Run(Version); err != nil {
+			fmt.Fprintf(os.Stderr, "Upgrade failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	isChat := len(os.Args) > 1 && os.Args[1] == "--chat"
 
 	loadEnvFile()
 
@@ -86,9 +96,14 @@ func main() {
 
 	fmt.Printf("ColetteDN: %d agents, %d workflows\n", len(doc.Agents), len(doc.Workflows))
 
+	if isChat {
+		repl := dsl.NewREPL(interp, dsl.WithREPLPrompt("colette"))
+		repl.Run()
+		return
+	}
+
 	// Start server
 	cfg := serve.Config{
-		Addr:   ":3001",
 		DBPath: vega.DefaultDBPath(),
 	}
 	srv := serve.New(interp, cfg)
